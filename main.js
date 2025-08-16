@@ -35,6 +35,11 @@ class CopilotPlugin extends Plugin {
 
         // Add settings tab
         this.addSettingTab(new CopilotSettingTab(this.app, this));
+
+        // Initialize chat history
+        if (!this.settings.chatHistory) {
+            this.settings.chatHistory = [];
+        }
     }
 
     async loadSettings() {
@@ -43,7 +48,8 @@ class CopilotPlugin extends Plugin {
             selectedModel: 'gemini-2.5-flash',
             commands: [],
             directReplace: false,
-            apiVerified: false
+            apiVerified: false,
+            chatHistory: []
         }, await this.loadData());
     }
 
@@ -257,6 +263,7 @@ class CopilotChatView extends ItemView {
         this.messages = [];
         this.currentSuggestions = [];
         this.selectedSuggestionIndex = -1;
+        this.currentSessionId = Date.now().toString();
     }
 
     getViewType() {
@@ -276,19 +283,38 @@ class CopilotChatView extends ItemView {
         container.empty();
         container.addClass('copilot-sidebar-container');
 
-        // Create header with new chat button
+        // Create header with new chat button and history
         const header = container.createDiv('copilot-header');
-        header.createEl('h2', { text: 'Copilot', cls: 'copilot-title' });
+        const headerLeft = header.createDiv('copilot-header-left');
+        headerLeft.createEl('h2', { text: 'Copilot', cls: 'copilot-title' });
+
+        const headerRight = header.createDiv('copilot-header-right');
+
+        // History button
+        const historyBtn = headerRight.createEl('button', {
+            cls: 'copilot-header-button',
+            attr: { 'aria-label': 'Chat history' }
+        });
+        historyBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>`;
+
+        historyBtn.addEventListener('click', () => {
+            this.showHistoryMenu(historyBtn);
+        });
 
         // Add new chat button
-        const newChatBtn = header.createEl('button', {
-            cls: 'copilot-new-chat-button',
+        const newChatBtn = headerRight.createEl('button', {
+            cls: 'copilot-header-button',
             attr: { 'aria-label': 'New chat' }
         });
         newChatBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>`;
 
-        newChatBtn.addEventListener('click', () => {
+        newChatBtn.addEventListener('click', async () => {
+            // Save current session only if it has messages
+            if (this.messages.length > 0) {
+                await this.saveCurrentSession();
+            }
             this.messages = [];
+            this.currentSessionId = Date.now().toString();
             this.chatContainer.empty();
             this.addWelcomeMessage();
             new Notice('Started new chat');
@@ -399,6 +425,13 @@ class CopilotChatView extends ItemView {
         // Add welcome message if no messages
         if (this.messages.length === 0) {
             this.addWelcomeMessage();
+        }
+    }
+
+    async onClose() {
+        // Save current session when closing the view
+        if (this.messages.length > 0) {
+            await this.saveCurrentSession();
         }
     }
 
@@ -636,9 +669,13 @@ class CopilotChatView extends ItemView {
             loadingEl.remove();
             this.addMessage('assistant', response);
 
+            // Auto-save session after each exchange
+            await this.saveCurrentSession();
+
         } catch (error) {
             loadingEl.remove();
             this.addMessage('assistant', `Error: ${error.message}`);
+
         }
     }
 
@@ -684,8 +721,15 @@ class CopilotChatView extends ItemView {
         return processed;
     }
 
-    addMessage(type, content, isLoading = false) {
+    addMessage(type, content, isLoading = false, saveToMessages = true) {
         const messageEl = this.chatContainer.createDiv(`copilot-message ${type}`);
+        if (saveToMessages && !isLoading) {
+            this.messages.push({
+                type: type,
+                content: content,
+                timestamp: Date.now()
+            });
+        }
 
         if (isLoading) {
             messageEl.innerHTML = `
@@ -723,6 +767,112 @@ class CopilotChatView extends ItemView {
             <div class="copilot-welcome-title">Welcome to Copilot</div>
             <div class="copilot-welcome-subtitle">Start a conversation or use / for commands</div>
         `;
+    }
+
+    async saveCurrentSession() {
+        if (this.messages.length === 0) return;
+
+        // Check if this session already exists in history
+        const existingIndex = this.plugin.settings.chatHistory.findIndex(
+            s => s.id === this.currentSessionId
+        );
+
+        const session = {
+            id: this.currentSessionId,
+            timestamp: Date.now(),
+            messages: [...this.messages],
+            title: this.generateSessionTitle()
+        };
+
+        if (existingIndex !== -1) {
+            // Update existing session
+            this.plugin.settings.chatHistory[existingIndex] = session;
+        } else {
+            // Add new session
+            this.plugin.settings.chatHistory.unshift(session);
+
+            // Keep only last 10 sessions
+            if (this.plugin.settings.chatHistory.length > 10) {
+                this.plugin.settings.chatHistory = this.plugin.settings.chatHistory.slice(0, 10);
+            }
+        }
+
+        await this.plugin.saveSettings();
+    }
+
+    generateSessionTitle() {
+        // Generate title from first user message
+        const firstUserMsg = this.messages.find(m => m.type === 'user');
+        if (firstUserMsg) {
+            return firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '');
+        }
+        return 'New Chat';
+    }
+
+    async loadSession(sessionId) {
+        const session = this.plugin.settings.chatHistory.find(s => s.id === sessionId);
+        if (session) {
+            this.messages = [...session.messages];
+            this.currentSessionId = sessionId;
+            this.renderAllMessages();
+        }
+    }
+
+    renderAllMessages() {
+        this.chatContainer.empty();
+        this.messages.forEach(msg => {
+            this.addMessage(msg.type, msg.content, false, false);
+        });
+    }
+
+    showHistoryMenu(button) {
+        const menu = new Menu();
+
+        if (this.plugin.settings.chatHistory.length === 0) {
+            menu.addItem((item) => {
+                item.setTitle('No chat history')
+                    .setDisabled(true);
+            });
+        } else {
+            this.plugin.settings.chatHistory.forEach((session, index) => {
+                menu.addItem((item) => {
+                    const date = new Date(session.timestamp);
+                    const timeStr = date.toLocaleString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    item.setTitle(session.title)
+                        .setSection(`${timeStr} • ${session.messages.length} messages`)
+                        .onClick(async () => {
+                            // Save current session before switching
+                            if (this.messages.length > 0 && this.currentSessionId !== session.id) {
+                                await this.saveCurrentSession();
+                            }
+                            await this.loadSession(session.id);
+                        });
+                });
+            });
+
+            menu.addSeparator();
+
+            menu.addItem((item) => {
+                item.setTitle('Clear all history')
+                    .setIcon('trash')
+                    .onClick(async () => {
+                        if (confirm('Are you sure you want to clear all chat history?')) {
+                            this.plugin.settings.chatHistory = [];
+                            await this.plugin.saveSettings();
+                            new Notice('Chat history cleared');
+                        }
+                    });
+            });
+        }
+
+        const rect = button.getBoundingClientRect();
+        menu.showAtPosition({ x: rect.left, y: rect.bottom });
     }
 }
 
@@ -1062,10 +1212,13 @@ class CopilotSettingTab extends PluginSettingTab {
                 button
                     .setButtonText('Verify')
                     .onClick(async () => {
-                        const statusEl = containerEl.querySelector('.copilot-api-status');
-                        if (statusEl) statusEl.remove();
+                        // Remove any existing status
+                        const existingStatus = containerEl.querySelector('.copilot-api-status');
+                        if (existingStatus) existingStatus.remove();
 
-                        const status = containerEl.createDiv('copilot-api-status');
+                        // Create status element after the setting item
+                        const settingItem = button.buttonEl.closest('.setting-item');
+                        const status = settingItem.createDiv('copilot-api-status');
                         status.setText('Verifying...');
 
                         const isValid = await this.plugin.verifyAPIKey(this.plugin.settings.apiKey);

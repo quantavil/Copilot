@@ -1,25 +1,15 @@
 {
-  "apiKey": "AIzaSyC-_-uHjWmfZysK5nHcbGqbViZ68NhLz8Q",
+  "apiKey": "AIzaSyBkbDlwdw4xUB9_wiwcNvXYnEGrLSlJcwU",
   "selectedModel": "gemini-2.5-flash-lite",
   "commands": [
     {
-      "id": "custom-1755341906780",
+      "id": "custom-1755350498363",
       "name": "Summarize",
-      "prompt": "summarize {} the text.",
-      "enabled": true
-    },
-    {
-      "id": "custom-1755344913297",
-      "name": "grammar",
-      "prompt": "correct the grammar {}",
+      "prompt": "Summarize the given text {}",
       "enabled": true
     }
   ],
   "directReplace": false,
   "apiVerified": true,
-  "apiProvider": "gemini",
-  "geminiApiKey": "AIzaSyC-_-uHjWmfZysK5nHcbGqbViZ68NhLz8Q",
-  "geminiModel": "gemini-2.5-flash",
-  "temperature": 0.2,
-  "maxOutputTokens": 2048
+  "chatHistory": []
 }
