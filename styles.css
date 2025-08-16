@@ -117,6 +117,7 @@ button {
 }
 
 .copilot-message-content {
+    user-select: text;
     white-space: pre-wrap;
     word-wrap: break-word;
     font-size: 14px;

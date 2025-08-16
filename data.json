@@ -1,6 +1,6 @@
 {
   "apiKey": "AIzaSyBkbDlwdw4xUB9_wiwcNvXYnEGrLSlJcwU",
-  "selectedModel": "gemini-2.5-flash-lite",
+  "selectedModel": "gemini-2.5-flash",
   "systemPrompt": "",
   "commands": [
     {
@@ -20,5 +20,40 @@
   ],
   "directReplace": false,
   "apiVerified": true,
-  "chatHistory": []
+  "chatHistory": [
+    {
+      "id": "1755368385708",
+      "timestamp": 1755368530696,
+      "messages": [
+        {
+          "type": "user",
+          "content": "HI",
+          "timestamp": 1755368389990
+        },
+        {
+          "type": "assistant",
+          "content": "Hi there! How can I help you today?",
+          "timestamp": 1755368392373
+        }
+      ],
+      "title": "HI"
+    },
+    {
+      "id": "1755367540295",
+      "timestamp": 1755368385699,
+      "messages": [
+        {
+          "type": "user",
+          "content": "WRITE THE PRIME GENERATOR FUNCTION",
+          "timestamp": 1755367566028
+        },
+        {
+          "type": "assistant",
+          "content": "```python\ndef prime_generator():\n    \"\"\"\n    A generator function that yields prime numbers indefinitely.\n    \"\"\"\n    yield 2  # The first prime number\n\n    primes = [2]\n    num = 3\n\n    while True:\n        is_prime = True\n        # Check divisibility by existing primes up to the square root of num\n        # This is an optimization: if a number has a divisor, it must have one <= its square root\n        for p in primes:\n            if p * p > num:\n                break\n            if num % p == 0:\n                is_prime = False\n                break\n\n        if is_prime:\n            primes.append(num)\n            yield num\n\n        num += 2  # Skip even numbers, as they are not prime (except 2)\n\n# --- How to use the prime_generator ---\n\nif __name__ == \"__main__\":\n    # Get the first 10 prime numbers\n    print(\"First 10 prime numbers:\")\n    gen = prime_generator()\n    for _ in range(10):\n        print(next(gen))\n\n    print(\"\\nPrimes between 100 and 120:\")\n    # You can continue using the same generator or create a new one\n    gen2 = prime_generator()\n    for prime in gen2:\n        if prime > 120:\n            break\n        if prime >= 100:\n            print(prime)\n```\n\n**Explanation:**\n\n1.  **`def prime_generator():`**: This defines a function named `prime_generator`. The key here is that it uses the `yield` keyword, which makes it a generator function.\n\n2.  **`yield 2`**: The number 2 is the first and only even prime number. We yield it immediately.\n\n3.  **`primes = [2]`**: We initialize a list called `primes` to store the prime numbers we've found so far. This list is crucial for checking the primality of subsequent numbers.\n\n4.  **`num = 3`**: We start checking for primality from the number 3.\n\n5.  **`while True:`**: This creates an infinite loop, meaning the generator will continue to produce prime numbers as long as you request them.\n\n6.  **`is_prime = True`**: For each `num`, we assume it's prime until proven otherwise.\n\n7.  **Optimization: Checking divisibility up to the square root:**\n    *   **`for p in primes:`**: We iterate through the `primes` list (which contains all the prime numbers found so far).\n    *   **`if p * p > num:`**: This is a significant optimization. If `num` has a divisor, it must have at least one divisor less than or equal to its square root. If the square of the current prime `p` is already greater than `num`, it means any subsequent prime in `primes` will also have its square greater than `num`. Therefore, `num` cannot be divisible by any of them, and we can `break` out of the inner loop.\n    *   **`if num % p == 0:`**: If `num` is divisible by any of the primes `p` in our `primes` list, it means `num` is not prime. We set `is_prime` to `False` and `break` the inner loop.\n\n8.  **`if is_prime:`**: If after checking against all relevant primes, `is_prime` is still `True`, it means `num` is indeed a prime number.\n    *   **`primes.append(num)`**: We add this newly found prime to our `primes` list.\n    *   **`yield num`**: The `yield` keyword returns the prime number to the caller. The function's state is saved, and it will resume from where it left off the next time `next()` is called on the generator.\n\n9.  **`num += 2`**: We increment `num` by 2. This is another optimization because after checking 2, we only need to consider odd numbers as potential primes.\n\n**How Generators Work:**\n\n*   **Lazy Evaluation:** Generators produce values one at a time, on demand. This is memory-efficient, especially for sequences that are very long or infinite.\n*   **`yield` Keyword:** Instead of `return`, generators use `yield`. When `yield` is encountered, the function pauses its execution and returns the yielded value. The next time `next()` is called on the generator, the function resumes from exactly where it left off.\n*   **`next()` Function:** You use the `next()` function (or a `for` loop, which implicitly calls `next()`) to retrieve values from a generator.\n*   **`StopIteration`:** When a generator function finishes (i.e., reaches the end of the function or a `return` statement without a value), it raises a `StopIteration` exception, signaling that there are no more values to yield. In our case, `while True` prevents `StopIteration` from being naturally reached.",
+          "timestamp": 1755367572325
+        }
+      ],
+      "title": "WRITE THE PRIME GENERATOR FUNCTION"
+    }
+  ]
 }
