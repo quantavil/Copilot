@@ -534,7 +534,7 @@ class CopilotChatView extends ItemView {
         }
     }
 
-        checkForSuggestions() {
+    checkForSuggestions() {
         const value = this.inputEl.value;
         const cursorPos = this.inputEl.selectionStart;
         const textBeforeCursor = value.substring(0, cursorPos);
@@ -762,7 +762,7 @@ class CopilotChatView extends ItemView {
                     const selection = activeView ? activeView.editor.getSelection() : '';
                     const commandArgs = message.substring(commandName.length + 2).trim();
                     const textToProcess = commandArgs || selection;
-                    
+
                     if (!textToProcess && command.prompt.includes('{}')) {
                         new Notice(`Please select text or provide arguments for the ${command.name} command.`);
                         loadingEl.remove();
@@ -893,8 +893,7 @@ ${content}
                 header.createSpan({ text: lang, cls: 'copilot-code-block-lang' });
 
                 const copyButton = header.createEl('button', { cls: 'copilot-copy-button' });
-                copyButton.innerHTML = "                <svg class=\"copilot-copy-icon\" xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\" ry=\"2\"></rect><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"></path></svg>                    <span class=\"copilot-copy-text\">Copy</span>                ";
-
+                copyButton.innerHTML = `<svg class="copilot-copy-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span class="copilot-copy-text">Copy</span>`;
                 copyButton.addEventListener('click', () => {
                     navigator.clipboard.writeText(code);
                     new Notice('Copied to clipboard');
@@ -1561,7 +1560,7 @@ class CommandEditModal extends Modal {
                 text.inputEl.style.width = '100%';
             });
 
-        
+
 
         // Buttons
         const buttonContainer = contentEl.createDiv('copilot-button-container');
