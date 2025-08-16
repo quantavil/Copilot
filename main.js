@@ -1393,15 +1393,6 @@ class CopilotSettingTab extends PluginSettingTab {
 
             const actions = header.createDiv('copilot-command-actions');
 
-            // Direct Replace indicator
-            if (command.directReplace) {
-                const directReplaceIndicator = actions.createSpan({
-                    text: '⚡',
-                    cls: 'copilot-command-direct-replace',
-                    attr: { 'aria-label': 'Direct Replace Mode' }
-                });
-            }
-
             // Toggle enabled
             const toggleBtn = actions.createEl('button', {
                 text: command.enabled ? 'Enabled' : 'Disabled',
@@ -1409,6 +1400,17 @@ class CopilotSettingTab extends PluginSettingTab {
             });
             toggleBtn.addEventListener('click', async () => {
                 command.enabled = !command.enabled;
+                await this.plugin.saveSettings();
+                this.display();
+            });
+
+            // Direct Replace button
+            const directReplaceBtn = actions.createEl('button', {
+                text: command.directReplace ? 'Direct Replace' : 'Show Output',
+                cls: 'copilot-command-button'
+            });
+            directReplaceBtn.addEventListener('click', async () => {
+                command.directReplace = !command.directReplace;
                 await this.plugin.saveSettings();
                 this.display();
             });
@@ -1487,15 +1489,7 @@ class CommandEditModal extends Modal {
                 text.inputEl.style.width = '100%';
             });
 
-        // Direct Replace toggle
-        new Setting(form)
-            .setName('Direct Replace Mode')
-            .setDesc('Replace selected text directly without showing output modal')
-            .addToggle(toggle => {
-                this.directReplaceToggle = toggle;
-                toggle
-                    .setValue(this.command?.directReplace || false);
-            });
+        
 
         // Buttons
         const buttonContainer = contentEl.createDiv('copilot-button-container');
@@ -1508,7 +1502,6 @@ class CommandEditModal extends Modal {
         saveBtn.addEventListener('click', async () => {
             const name = this.nameInput.getValue().trim();
             const prompt = this.promptInput.getValue().trim();
-            const directReplace = this.directReplaceToggle.getValue();
 
             if (!name || !prompt) {
                 new Notice('Please fill in all fields');
@@ -1519,7 +1512,6 @@ class CommandEditModal extends Modal {
                 // Edit existing
                 this.command.name = name;
                 this.command.prompt = prompt;
-                this.command.directReplace = directReplace;
             } else {
                 // Create new
                 const newCommand = {
@@ -1527,7 +1519,7 @@ class CommandEditModal extends Modal {
                     name: name,
                     prompt: prompt,
                     enabled: true,
-                    directReplace: directReplace
+                    directReplace: false // Default to false
                 };
                 this.plugin.settings.commands.push(newCommand);
             }

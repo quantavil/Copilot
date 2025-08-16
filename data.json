@@ -7,14 +7,14 @@
       "name": "Summarize",
       "prompt": "Summarize the given text {}",
       "enabled": true,
-      "directReplace": false
+      "directReplace": true
     },
     {
       "id": "custom-1755355486018",
       "name": "Table",
       "prompt": "Create the table {} from this unorgainzed data",
       "enabled": true,
-      "directReplace": true
+      "directReplace": false
     }
   ],
   "directReplace": false,
