@@ -43,14 +43,48 @@ class CopilotPlugin extends Plugin {
     }
 
     async loadSettings() {
-        this.settings = Object.assign({}, {
+        // Load saved data
+        const savedData = await this.loadData() || {};
+
+        // Define default settings
+        const defaultSettings = {
             apiKey: '',
             selectedModel: 'gemini-2.5-flash',
             commands: [],
-            directReplace: false,
+            directReplace: false, // Keep this as global default for new commands
             apiVerified: false,
             chatHistory: []
-        }, await this.loadData());
+        };
+
+        // Merge saved data with defaults
+        this.settings = Object.assign({}, defaultSettings, savedData);
+
+        // Ensure commands is an array (safety check)
+        if (!Array.isArray(this.settings.commands)) {
+            this.settings.commands = [];
+        }
+
+        // Migrate existing commands to include directReplace property
+        this.settings.commands = this.settings.commands.map(cmd => {
+            // Preserve all existing command properties and add directReplace if missing
+            return {
+                id: cmd.id,
+                name: cmd.name,
+                prompt: cmd.prompt,
+                enabled: cmd.enabled !== undefined ? cmd.enabled : true,
+                directReplace: cmd.directReplace !== undefined
+                    ? cmd.directReplace
+                    : this.settings.directReplace
+            };
+        });
+
+        // Initialize chat history if not present
+        if (!Array.isArray(this.settings.chatHistory)) {
+            this.settings.chatHistory = [];
+        }
+
+        // Save the migrated settings back
+        await this.saveSettings();
     }
 
     async saveSettings() {
@@ -143,7 +177,8 @@ class CopilotPlugin extends Plugin {
             const prompt = await this.processPrompt(command.prompt, selection, view);
             const response = await this.callGeminiAPI(prompt);
 
-            if (this.settings.directReplace && selection) {
+            // Use command-specific directReplace setting
+            if (command.directReplace && selection) {
                 editor.replaceSelection(response);
             } else {
                 // Show output modal
@@ -1253,19 +1288,6 @@ class CopilotSettingTab extends PluginSettingTab {
                     });
             });
 
-        // Direct Replace Setting
-        new Setting(containerEl)
-            .setName('Direct Replace Mode')
-            .setDesc('Replace selected text directly without showing output modal')
-            .addToggle(toggle => {
-                toggle
-                    .setValue(this.plugin.settings.directReplace)
-                    .onChange(async (value) => {
-                        this.plugin.settings.directReplace = value;
-                        await this.plugin.saveSettings();
-                    });
-            });
-
         // Commands Section
         containerEl.createEl('h3', { text: 'Custom Commands' });
 
@@ -1291,6 +1313,15 @@ class CopilotSettingTab extends PluginSettingTab {
             header.createSpan({ text: command.name, cls: 'copilot-command-name' });
 
             const actions = header.createDiv('copilot-command-actions');
+
+            // Direct Replace indicator
+            if (command.directReplace) {
+                const directReplaceIndicator = actions.createSpan({
+                    text: '⚡',
+                    cls: 'copilot-command-direct-replace',
+                    attr: { 'aria-label': 'Direct Replace Mode' }
+                });
+            }
 
             // Toggle enabled
             const toggleBtn = actions.createEl('button', {
@@ -1335,7 +1366,6 @@ class CopilotSettingTab extends PluginSettingTab {
         });
     }
 }
-
 // ===== COMMAND EDIT MODAL =====
 class CommandEditModal extends Modal {
     constructor(app, plugin, command, onSave) {
@@ -1378,6 +1408,16 @@ class CommandEditModal extends Modal {
                 text.inputEl.style.width = '100%';
             });
 
+        // Direct Replace toggle
+        new Setting(form)
+            .setName('Direct Replace Mode')
+            .setDesc('Replace selected text directly without showing output modal')
+            .addToggle(toggle => {
+                this.directReplaceToggle = toggle;
+                toggle
+                    .setValue(this.command?.directReplace || false);
+            });
+
         // Buttons
         const buttonContainer = contentEl.createDiv('copilot-button-container');
 
@@ -1389,6 +1429,7 @@ class CommandEditModal extends Modal {
         saveBtn.addEventListener('click', async () => {
             const name = this.nameInput.getValue().trim();
             const prompt = this.promptInput.getValue().trim();
+            const directReplace = this.directReplaceToggle.getValue();
 
             if (!name || !prompt) {
                 new Notice('Please fill in all fields');
@@ -1399,13 +1440,15 @@ class CommandEditModal extends Modal {
                 // Edit existing
                 this.command.name = name;
                 this.command.prompt = prompt;
+                this.command.directReplace = directReplace;
             } else {
                 // Create new
                 const newCommand = {
                     id: `custom-${Date.now()}`,
                     name: name,
                     prompt: prompt,
-                    enabled: true
+                    enabled: true,
+                    directReplace: directReplace
                 };
                 this.plugin.settings.commands.push(newCommand);
             }

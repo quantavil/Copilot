@@ -356,6 +356,25 @@
     margin-top: 8px;
 }
 
+/* Direct Replace Indicator */
+.copilot-command-direct-replace {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-radius: 50%;
+    font-size: 12px;
+    margin-right: 8px;
+    cursor: help;
+}
+
+.copilot-command-direct-replace:hover {
+    transform: scale(1.1);
+}
+
 /* ===== API Status ===== */
 .copilot-api-status {
     margin-top: 8px;

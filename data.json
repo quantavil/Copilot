@@ -6,7 +6,15 @@
       "id": "custom-1755350498363",
       "name": "Summarize",
       "prompt": "Summarize the given text {}",
-      "enabled": true
+      "enabled": true,
+      "directReplace": false
+    },
+    {
+      "id": "custom-1755355486018",
+      "name": "Table",
+      "prompt": "Create the table {} from this unorgainzed data",
+      "enabled": true,
+      "directReplace": true
     }
   ],
   "directReplace": false,
