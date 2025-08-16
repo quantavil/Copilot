@@ -338,7 +338,7 @@ class CopilotChatView extends ItemView {
         this.inputEl = inputContainer.createEl('textarea', {
             cls: 'copilot-input',
             attr: {
-                placeholder: 'Type your message or use / for commands...',
+                placeholder: 'Ask anything. [[ for notes. / for custom prompts.',
                 rows: '1'
             }
         });
