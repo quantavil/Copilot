@@ -548,7 +548,7 @@ class CopilotChatView extends ItemView {
 
         // Check for note links like [[Note Name... (partial)]]
         // Match an opening [[ and capture anything after it up to the cursor (no closing brackets required)
-        const linkMatch = textBeforeCursor.match(/\\\[\[([^\]]*)$/);
+        const linkMatch = textBeforeCursor.match(/\[\[([^\]]*)$/);
         if (linkMatch) {
             this.showNoteSuggestions(linkMatch[1]);
             return;
@@ -699,7 +699,7 @@ class CopilotChatView extends ItemView {
             newText = '/' + suggestion.value + ' ';
         } else if (suggestion.type === 'note') {
             // Match the opening [[ and whatever the user typed after it (no closing required)
-            const match = textBeforeCursor.match(/\\\[\[([^\]]*)$/);
+            const match = textBeforeCursor.match(/\[\[([^\]]*)$/);
             replaceLength = match ? match[0].length : 0;
             newText = '[[' + suggestion.value + ']]';
         } else if (suggestion.type === 'tag') {
@@ -796,7 +796,7 @@ class CopilotChatView extends ItemView {
         let processed = message;
 
         // Process [[Note]] links - find all complete [[Note Name]] occurrences
-        const linkMatches = [...processed.matchAll(/\\\[\[([^\]]+)\]\]/g)];
+        const linkMatches = [...processed.matchAll(/\[\[([^\]]+)\]\]/g)];
         if (linkMatches.length > 0) {
             for (const m of linkMatches) {
                 const match = m[0];
