@@ -867,10 +867,55 @@ ${content}
             return messageEl;
         }
 
-        messageEl.createDiv({
-            cls: 'copilot-message-content',
-            text: content
+        const messageContentEl = messageEl.createDiv({
+            cls: 'copilot-message-content'
         });
+
+        if (type === 'assistant') {
+            const codeBlockRegex = /```(\w*)\n([\s\S]*?)\n```/g;
+            let lastIndex = 0;
+            let match;
+
+            while ((match = codeBlockRegex.exec(content)) !== null) {
+                // Add text before the code block
+                if (match.index > lastIndex) {
+                    messageContentEl.createDiv({
+                        text: content.substring(lastIndex, match.index)
+                    });
+                }
+
+                const lang = match[1] || 'code';
+                const code = match[2];
+
+                const codeBlockWrapper = messageContentEl.createDiv({ cls: 'copilot-code-block-wrapper' });
+
+                const header = codeBlockWrapper.createDiv({ cls: 'copilot-code-block-header' });
+                header.createSpan({ text: lang, cls: 'copilot-code-block-lang' });
+
+                const copyButton = header.createEl('button', { cls: 'copilot-copy-button' });
+                copyButton.innerHTML = "                <svg class=\"copilot-copy-icon\" xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\" ry=\"2\"></rect><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"></path></svg>                    <span class=\"copilot-copy-text\">Copy</span>                ";
+
+                copyButton.addEventListener('click', () => {
+                    navigator.clipboard.writeText(code);
+                    new Notice('Copied to clipboard');
+                });
+
+                const pre = codeBlockWrapper.createEl('pre');
+                const codeEl = pre.createEl('code', { text: code });
+
+                lastIndex = codeBlockRegex.lastIndex;
+            }
+
+            // Add remaining text after the last code block
+            if (lastIndex < content.length) {
+                messageContentEl.createDiv({
+                    text: content.substring(lastIndex)
+                });
+            }
+        } else {
+            messageContentEl.setText(content);
+        }
+
 
         // Add timestamp
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
