@@ -290,6 +290,35 @@ class CopilotPlugin extends Plugin {
 
 // ===== CHAT VIEW CLASS =====
 
+class ConfirmationModal extends Modal {
+    constructor(app, onConfirm) {
+        super(app);
+        this.onConfirm = onConfirm;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h2', { text: 'Are you sure?' });
+        contentEl.createEl('p', { text: 'This will clear all chat history.' });
+
+        const buttonContainer = contentEl.createDiv({ cls: 'copilot-button-container' });
+
+        const confirmBtn = buttonContainer.createEl('button', {
+            text: 'Yes, clear history',
+            cls: 'mod-cta'
+        });
+        confirmBtn.addEventListener('click', () => {
+            this.onConfirm();
+            this.close();
+        });
+
+        const cancelBtn = buttonContainer.createEl('button', { text: 'Cancel' });
+        cancelBtn.addEventListener('click', () => this.close());
+    }
+}
+
+// ===== CHAT VIEW CLASS =====
+
 /* ===== CHAT VIEW CLASS ===== */
 class CopilotChatView extends ItemView {
     constructor(leaf, plugin) {
@@ -946,12 +975,12 @@ ${content}
             menu.addItem((item) => {
                 item.setTitle('Clear all history')
                     .setIcon('trash')
-                    .onClick(async () => {
-                        if (confirm('Are you sure you want to clear all chat history?')) {
+                    .onClick(() => {
+                        new ConfirmationModal(this.app, async () => {
                             this.plugin.settings.chatHistory = [];
                             await this.plugin.saveSettings();
                             new Notice('Chat history cleared');
-                        }
+                        }).open();
                     });
             });
         }
