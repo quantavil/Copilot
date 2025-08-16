@@ -50,6 +50,7 @@ class CopilotPlugin extends Plugin {
         const defaultSettings = {
             apiKey: '',
             selectedModel: 'gemini-2.5-flash',
+            systemPrompt: '',
             commands: [],
             directReplace: false, // Keep this as global default for new commands
             apiVerified: false,
@@ -245,6 +246,22 @@ class CopilotPlugin extends Plugin {
     async callGeminiAPI(prompt) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${this.settings.apiKey}`;
 
+        const requestBody = {
+            contents: [{
+                parts: [{
+                    text: prompt
+                }]
+            }]
+        };
+
+        if (this.settings.systemPrompt) {
+            requestBody.system_instruction = {
+                parts: [{
+                    text: this.settings.systemPrompt
+                }]
+            };
+        }
+
         try {
             const response = await requestUrl({
                 url: url,
@@ -252,13 +269,7 @@ class CopilotPlugin extends Plugin {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: prompt
-                        }]
-                    }]
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (response.json.candidates && response.json.candidates[0]) {
@@ -1365,6 +1376,22 @@ class CopilotSettingTab extends PluginSettingTab {
                         this.plugin.settings.selectedModel = value;
                         await this.plugin.saveSettings();
                     });
+            });
+
+        // System Prompt Setting
+        new Setting(containerEl)
+            .setName('System Prompt')
+            .setDesc('Enter a system-level prompt to guide the AI\'s behavior for all interactions.')
+            .addTextArea(text => {
+                text
+                    .setPlaceholder('e.g., You are a helpful assistant that provides concise answers.')
+                    .setValue(this.plugin.settings.systemPrompt)
+                    .onChange(async (value) => {
+                        this.plugin.settings.systemPrompt = value;
+                        await this.plugin.saveSettings();
+                    });
+                text.inputEl.rows = 4;
+                text.inputEl.style.width = '100%';
             });
 
         // Commands Section

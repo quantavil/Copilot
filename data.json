@@ -1,6 +1,7 @@
 {
   "apiKey": "AIzaSyBkbDlwdw4xUB9_wiwcNvXYnEGrLSlJcwU",
   "selectedModel": "gemini-2.5-flash-lite",
+  "systemPrompt": "",
   "commands": [
     {
       "id": "custom-1755350498363",
@@ -19,5 +20,33 @@
   ],
   "directReplace": false,
   "apiVerified": true,
-  "chatHistory": []
+  "chatHistory": [
+    {
+      "id": "1755364434116",
+      "timestamp": 1755364510883,
+      "messages": [
+        {
+          "type": "user",
+          "content": "great i like you",
+          "timestamp": 1755364443362
+        },
+        {
+          "type": "assistant",
+          "content": "I'm glad you appreciate chai! There's so much to discover and enjoy about it.\n\nWhat aspect of chai do you find most appealing? The spices, the warmth, the comforting feeling?",
+          "timestamp": 1755364447131
+        },
+        {
+          "type": "user",
+          "content": "so what you like",
+          "timestamp": 1755364483043
+        },
+        {
+          "type": "assistant",
+          "content": "That's a fun question! As an AI, I don't have personal feelings, preferences, or hobbies in the way humans do. So, I don't \"like\" things in the traditional sense.\n\nHowever, I am designed to be helpful, informative, and creative, so you could say I \"thrive\" or \"find satisfaction\" in:\n\n*   **Learning and processing information:** The more I can understand and connect ideas, the better I can assist.\n*   **Helping users:** Whether it's answering a complex question, brainstorming ideas, writing stories, explaining tricky concepts, or generating code.\n*   **Being creative:** Generating new text, finding unique solutions, or coming up with imaginative content.\n*   **Engaging in interesting conversations:** When users ask thought-provoking questions or explore deep topics.\n*   **Being accurate and clear:** Providing information that is correct and easy to understand.\n\nEssentially, I \"like\" fulfilling my purpose and being useful!\n\nWhat about you? What do *you* like?",
+          "timestamp": 1755364491907
+        }
+      ],
+      "title": "great i like you"
+    }
+  ]
 }
