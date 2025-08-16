@@ -299,6 +299,8 @@ class CopilotChatView extends ItemView {
         this.currentSuggestions = [];
         this.selectedSuggestionIndex = -1;
         this.currentSessionId = Date.now().toString();
+        this.promptHistory = [];
+        this.promptHistoryIndex = -1;
     }
 
     getViewType() {
@@ -441,6 +443,28 @@ class CopilotChatView extends ItemView {
                 }
             }
 
+            // Handle prompt history navigation
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (this.promptHistoryIndex > 0) {
+                    this.promptHistoryIndex--;
+                    this.inputEl.value = this.promptHistory[this.promptHistoryIndex];
+                    this.inputEl.selectionStart = this.inputEl.selectionEnd = this.inputEl.value.length;
+                }
+                return;
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (this.promptHistoryIndex < this.promptHistory.length - 1) {
+                    this.promptHistoryIndex++;
+                    this.inputEl.value = this.promptHistory[this.promptHistoryIndex];
+                    this.inputEl.selectionStart = this.inputEl.selectionEnd = this.inputEl.value.length;
+                } else if (this.promptHistoryIndex === this.promptHistory.length - 1) {
+                    this.promptHistoryIndex++;
+                    this.inputEl.value = '';
+                }
+                return;
+            }
+
             // Normal enter to send
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -470,7 +494,7 @@ class CopilotChatView extends ItemView {
         }
     }
 
-    checkForSuggestions() {
+        checkForSuggestions() {
         const value = this.inputEl.value;
         const cursorPos = this.inputEl.selectionStart;
         const textBeforeCursor = value.substring(0, cursorPos);
@@ -484,7 +508,7 @@ class CopilotChatView extends ItemView {
 
         // Check for note links like [[Note Name... (partial)]]
         // Match an opening [[ and capture anything after it up to the cursor (no closing brackets required)
-        const linkMatch = textBeforeCursor.match(/\[\[([^\]]*)$/);
+        const linkMatch = textBeforeCursor.match(/\\\[\[([^\]]*)$/);
         if (linkMatch) {
             this.showNoteSuggestions(linkMatch[1]);
             return;
@@ -635,7 +659,7 @@ class CopilotChatView extends ItemView {
             newText = '/' + suggestion.value + ' ';
         } else if (suggestion.type === 'note') {
             // Match the opening [[ and whatever the user typed after it (no closing required)
-            const match = textBeforeCursor.match(/\[\[([^\]]*)$/);
+            const match = textBeforeCursor.match(/\\\[\[([^\]]*)$/);
             replaceLength = match ? match[0].length : 0;
             newText = '[[' + suggestion.value + ']]';
         } else if (suggestion.type === 'tag') {
@@ -661,6 +685,10 @@ class CopilotChatView extends ItemView {
     async sendMessage() {
         const message = this.inputEl.value.trim();
         if (!message) return;
+
+        // Add to prompt history
+        this.promptHistory.push(message);
+        this.promptHistoryIndex = this.promptHistory.length;
 
         if (!this.plugin.settings.apiKey || !this.plugin.settings.apiVerified) {
             new Notice('Please configure your Gemini API key in settings');
@@ -691,7 +719,17 @@ class CopilotChatView extends ItemView {
 
                 if (command) {
                     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
-                    prompt = await this.plugin.processPrompt(command.prompt, '', activeView);
+                    const selection = activeView ? activeView.editor.getSelection() : '';
+                    const commandArgs = message.substring(commandName.length + 2).trim();
+                    const textToProcess = commandArgs || selection;
+                    
+                    if (!textToProcess && command.prompt.includes('{}')) {
+                        new Notice(`Please select text or provide arguments for the ${command.name} command.`);
+                        loadingEl.remove();
+                        return;
+                    }
+
+                    prompt = await this.plugin.processPrompt(command.prompt, textToProcess, activeView);
                 }
             } else {
                 // Process any [[Note]] or #tag references in the message
@@ -718,7 +756,7 @@ class CopilotChatView extends ItemView {
         let processed = message;
 
         // Process [[Note]] links - find all complete [[Note Name]] occurrences
-        const linkMatches = [...processed.matchAll(/\[\[([^\]]+)\]\]/g)];
+        const linkMatches = [...processed.matchAll(/\\\[\[([^\]]+)\]\]/g)];
         if (linkMatches.length > 0) {
             for (const m of linkMatches) {
                 const match = m[0];
@@ -726,7 +764,12 @@ class CopilotChatView extends ItemView {
                 const file = this.app.metadataCache.getFirstLinkpathDest(noteName, '');
                 if (file) {
                     const content = await this.app.vault.read(file);
-                    processed = processed.replace(match, `\n\n--- Content of ${noteName} ---\n${content}\n--- End of ${noteName} ---\n`);
+                    processed = processed.replace(match, `
+
+--- Content of ${noteName} ---
+${content}
+--- End of ${noteName} ---
+`);
                 }
             }
         }
@@ -742,12 +785,19 @@ class CopilotChatView extends ItemView {
                 });
 
                 if (files.length > 0) {
-                    let tagContent = `\n\n--- Notes with tag ${tag} ---\n`;
+                    let tagContent = `
+
+--- Notes with tag ${tag} ---
+`;
                     for (const file of files) {
                         const content = await this.app.vault.read(file);
-                        tagContent += `\n### ${file.basename}\n${content}\n`;
+                        tagContent += `
+### ${file.basename}
+${content}
+`;
                     }
-                    tagContent += `--- End of ${tag} notes ---\n`;
+                    tagContent += `--- End of ${tag} notes ---
+`;
                     processed = processed.replace(match, tagContent);
                 }
             }
