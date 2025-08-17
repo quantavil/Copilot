@@ -757,16 +757,23 @@ button:focus-visible {
 .copilot-message-content h3 { font-size: 1.1em; }
 
 .copilot-message-content p {
-    margin-bottom: 8px;
+    margin-bottom: 0.5rem;
 }
 
 .copilot-message-content ul,
 .copilot-message-content ol {
-    margin-bottom: 2px;
+    padding-left: 1rem;
+    margin-bottom: 0.25rem;
 }
 
+.copilot-message-content ul ul,
+.copilot-message-content ol ol {
+  padding-left: 0.75rem;
+}
+
+
 .copilot-message-content li {
-    margin-bottom: 4px;
+    margin-bottom: 0.3rem;
 }
 
 .copilot-message-content blockquote {
