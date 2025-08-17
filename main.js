@@ -872,6 +872,18 @@ ${content}
         });
 
         if (type === 'assistant') {
+            const modelName = this.plugin.settings.selectedModel.split('-').pop();
+            const modelEl = messageEl.createDiv({
+                cls: 'copilot-message-model',
+                text: modelName
+            });
+            modelEl.addEventListener('click', () => {
+                navigator.clipboard.writeText(content);
+                new Notice('Copied to clipboard');
+            });
+        }
+
+        if (type === 'assistant') {
             const codeBlockRegex = /```(\w*)\n([\s\S]*?)\n```/g;
             let lastIndex = 0;
             let match;

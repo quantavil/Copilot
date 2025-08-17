@@ -124,6 +124,16 @@ button {
     line-height: 1.6;
 }
 
+.copilot-message-model {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+    font-size: 10px;
+    color: var(--text-muted);
+    opacity: 0.7;
+    cursor: pointer;
+}
+
 .copilot-message-time {
     font-size: 11px;
     opacity: 0.6;
