@@ -1,7 +1,7 @@
 {
   "id": "copilot",
   "name": "Copilot",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "minAppVersion": "1.0.0",
   "description": "Bring AI into your notes with custom commands powered by Gemini API",
   "author": "quantavil",

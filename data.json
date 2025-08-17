@@ -1,6 +1,6 @@
 {
   "apiKey": "AIzaSyBkbDlwdw4xUB9_wiwcNvXYnEGrLSlJcwU",
-  "selectedModel": "gemini-2.5-flash",
+  "selectedModel": "gemini-2.5-flash-lite",
   "systemPrompt": "",
   "commands": [
     {
@@ -41,62 +41,7 @@
   ],
   "directReplace": false,
   "apiVerified": true,
-  "chatHistory": [
-    {
-      "id": "1755415709910",
-      "timestamp": 1755415852652,
-      "messages": [
-        {
-          "type": "user",
-          "content": "osdfsdfssdf s fs f",
-          "timestamp": 1755415715235
-        },
-        {
-          "type": "assistant",
-          "content": "This doesn't seem to be a word or phrase in any language I recognize.\n\nCould you please clarify what you meant or provide more context?",
-          "timestamp": 1755415718792
-        }
-      ],
-      "title": "osdfsdfssdf s fs f"
-    },
-    {
-      "id": "1755415166755",
-      "timestamp": 1755415499566,
-      "messages": [
-        {
-          "type": "user",
-          "content": "[[Star Problems]] /Fix Grammar",
-          "timestamp": 1755415265467
-        },
-        {
-          "type": "assistant",
-          "content": "Here's the corrected grammar:\n\n--- Content of Star Problems ---\nWhat is 2 + 3, and what is 5 + 7?\n--- End of Star Problems ---",
-          "timestamp": 1755415268162
-        },
-        {
-          "type": "user",
-          "content": "[[Star Problems]] /Fix Grammar",
-          "timestamp": 1755415278530
-        },
-        {
-          "type": "assistant",
-          "content": "--- Content of Star Problems ---\nWhat is 2+3?\nWhat is 5+7?\n--- End of Star Problems ---",
-          "timestamp": 1755415283097
-        },
-        {
-          "type": "user",
-          "content": "[[Star Problems]] /Reframer",
-          "timestamp": 1755415299161
-        },
-        {
-          "type": "assistant",
-          "content": "*   What is 2+3?\n*   What is 5+7?",
-          "timestamp": 1755415302261
-        }
-      ],
-      "title": "[[Star Problems]] /Fix Grammar"
-    }
-  ],
+  "chatHistory": [],
   "userId": "a1d381f1-cd58-456b-a96c-1cace8a1a92e",
   "isPlusUser": false,
   "plusLicenseKey": "",

@@ -336,6 +336,7 @@ class CopilotChatView extends ItemView {
         this.promptHistoryIndex = -1;
         this.canvasFile = null;
         this.canvasOutputOnly = false;
+        this.contextFile = null;
     }
 
     getViewType() {
@@ -391,6 +392,7 @@ class CopilotChatView extends ItemView {
             this.addWelcomeMessage();
             this.canvasFile = null;
             this.canvasOutputOnly = false;
+            this.contextFile = null;
             new Notice('Started new chat');
         });
 
@@ -537,6 +539,7 @@ class CopilotChatView extends ItemView {
         }
         this.canvasFile = null;
         this.canvasOutputOnly = false;
+        this.contextFile = null;
     }
 
     checkForSuggestions() {
@@ -740,6 +743,7 @@ class CopilotChatView extends ItemView {
         const message = this.inputEl.value.trim();
         if (!message) return;
 
+        // Handle canvas commands first (no history, no chat message)
         if (message === '/canvas') {
             this.createCanvasFile();
             this.inputEl.value = '';
@@ -748,6 +752,12 @@ class CopilotChatView extends ItemView {
         } else if (message === '/canvas -o') {
             this.canvasOutputOnly = true;
             this.createCanvasFile();
+            this.inputEl.value = '';
+            this.inputEl.style.height = 'auto';
+            return;
+        } else if (message.startsWith('/canvas -f')) {
+            // Set the working file context for the session
+            await this.setContextFileFromCommand(message);
             this.inputEl.value = '';
             this.inputEl.style.height = 'auto';
             return;
@@ -762,22 +772,55 @@ class CopilotChatView extends ItemView {
             return;
         }
 
-        // Remove welcome message if exists
+        // Remove welcome message if it exists
         const welcomeEl = this.chatContainer.querySelector('.copilot-welcome');
         if (welcomeEl) welcomeEl.remove();
 
-        // Add user message
+        // Add user message to chat
         this.addMessage('user', message);
         this.inputEl.value = '';
         this.inputEl.style.height = 'auto';
 
-        // Show loading
+        // Show loading spinner message
         const loadingEl = this.addMessage('assistant', '', true);
 
         try {
+            // If a working file is active, all operations should target it
+            if (this.contextFile) {
+                const action = this.detectContextAction(message); // 'replace' | 'append' | 'ask'
+                const fileContent = await this.app.vault.read(this.contextFile);
+                const prompt = this.buildContextFilePrompt(fileContent, message, action);
+                const response = await this.plugin.callGeminiAPI(prompt);
+
+                // Remove spinner and add assistant response to chat
+                loadingEl.remove();
+                this.addMessage('assistant', response);
+
+                // Apply to file if needed
+                const clean = this.sanitizeModelOutput(response);
+                try {
+                    if (action === 'replace') {
+                        await this.app.vault.modify(this.contextFile, clean);
+                        new Notice(`Replaced content of "${this.contextFile.basename}"`);
+                    } else if (action === 'append') {
+                        await this.app.vault.append(this.contextFile, '\n\n' + clean + '\n');
+                        new Notice(`Appended to "${this.contextFile.basename}"`);
+                    } else {
+                        // 'ask' -> no file write
+                    }
+                } catch (e) {
+                    new Notice(`Failed to update file: ${e.message}`);
+                }
+
+                // Auto-save session after each exchange
+                await this.saveCurrentSession();
+                return;
+            }
+
+            // Normal chat flow (no working file context)
             let prompt = message;
 
-            // Check for slash commands
+            // Check for slash commands (custom commands)
             if (message.startsWith('/')) {
                 const commandName = message.slice(1).split(' ')[0];
                 const command = this.plugin.settings.commands.find(c =>
@@ -815,7 +858,6 @@ class CopilotChatView extends ItemView {
         } catch (error) {
             loadingEl.remove();
             this.addMessage('assistant', `Error: ${error.message}`);
-
         }
     }
 
@@ -830,6 +872,102 @@ class CopilotChatView extends ItemView {
         }
     }
 
+    // NEW: Parse [[Note]] from the command and set contextFile
+    async setContextFileFromCommand(message) {
+        const title = this.extractWikiLinkTitle(message);
+        if (!title) {
+            new Notice('Usage: /canvas -f [[Note Title]]');
+            return;
+        }
+        const file = this.app.metadataCache.getFirstLinkpathDest(title, '');
+        if (!file) {
+            new Notice(`File not found: ${title}`);
+            return;
+        }
+        this.contextFile = file;
+        new Notice(`Working file set: "${file.basename}". All actions now target this file.`);
+    }
+
+    // NEW: simple extractor for [[Title]]
+    extractWikiLinkTitle(text) {
+        const start = text.indexOf('[[');
+        if (start === -1) return null;
+        const end = text.indexOf(']]', start + 2);
+        if (end === -1) return null;
+        return text.slice(start + 2, end);
+    }
+
+    // NEW: decide action based on message
+    detectContextAction(message) {
+        const lower = message.trim().toLowerCase();
+        if (lower.startsWith('append ') || lower.startsWith('append:') ||
+            lower.startsWith('add ') || lower.startsWith('add:')) {
+            return 'append';
+        }
+        if (lower.startsWith('ask ') || lower.startsWith('ask:') || lower.endsWith('?')) {
+            return 'ask';
+        }
+        // default: replace the entire file
+        return 'replace';
+    }
+
+    // NEW: build a strong instruction so the model returns exactly what we need
+    buildContextFilePrompt(currentContent, userMessage, action) {
+        const header = `You are an expert Markdown editor working on a single document.`;
+        const docIntro = `Current document (Markdown):\n---\n${currentContent}\n---`;
+        if (action === 'ask') {
+            return `${header}
+
+Answer the user's question based ONLY on the document.
+Do not propose edits unless explicitly asked.
+Do not include the full document in your answer.
+
+${docIntro}
+
+User question:
+${userMessage}`;
+        } else if (action === 'append') {
+            return `${header}
+
+Create content to APPEND to the end of the document, following the user's instruction.
+Return ONLY the content to append in Markdown (no commentary, no code fences).
+
+${docIntro}
+
+Append instruction:
+${userMessage}`;
+        } else {
+            // replace
+            return `${header}
+
+Transform the entire document according to the user's instruction.
+Return ONLY the full, UPDATED document in Markdown.
+Do NOT include commentary or wrap the output in code fences.
+
+${docIntro}
+
+Rewrite/Transform instruction:
+${userMessage}`;
+        }
+    }
+
+    // NEW: remove surrounding ``` fences if the model returns them
+    sanitizeModelOutput(text) {
+        if (!text) return '';
+        let out = text.trim();
+        if (out.startsWith('```')) {
+            const firstNL = out.indexOf('\n');
+            if (firstNL !== -1) {
+                out = out.slice(firstNL + 1);
+                // remove trailing ```
+                if (out.endsWith('```')) {
+                    out = out.slice(0, -3).trim();
+                }
+            }
+        }
+        return out;
+    }
+    
     async processChatPrompt(message) {
         let processed = message;
 
