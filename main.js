@@ -478,6 +478,10 @@ class CopilotChatView extends ItemView {
                     e.preventDefault();
                     this.selectSuggestion(this.selectedSuggestionIndex);
                     return;
+                } else if (e.key === 'Tab' && this.selectedSuggestionIndex >= 0) {
+                    e.preventDefault();
+                    this.selectSuggestion(this.selectedSuggestionIndex);
+                    return;
                 } else if (e.key === 'Escape') {
                     e.preventDefault();
                     this.hideSuggestions();
@@ -571,16 +575,18 @@ class CopilotChatView extends ItemView {
         const commands = this.plugin.settings.commands
             .filter(cmd => cmd.enabled && cmd.name.toLowerCase().includes(query.toLowerCase()));
 
-        if (commands.length === 0) {
+        const allSuggestions = [...commands.map(cmd => ({ type: 'command', value: cmd.name, data: cmd }))];
+
+        if ('canvas'.toLowerCase().includes(query.toLowerCase())) {
+            allSuggestions.unshift({ type: 'command', value: 'canvas', data: { name: 'canvas', prompt: 'Create a new canvas file for the current session.' } });
+        }
+
+        if (allSuggestions.length === 0) {
             this.hideSuggestions();
             return;
         }
 
-        this.currentSuggestions = commands.map(cmd => ({
-            type: 'command',
-            value: cmd.name,
-            data: cmd
-        }));
+        this.currentSuggestions = allSuggestions;
 
         this.displaySuggestions();
     }
