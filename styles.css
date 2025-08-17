@@ -118,7 +118,6 @@ button {
 
 .copilot-message-content {
     user-select: text;
-    white-space: pre-wrap;
     word-wrap: break-word;
     font-size: 14px;
     line-height: 1.6;
@@ -740,4 +739,99 @@ button:focus-visible {
     .copilot-copy-button {
         border: 1px solid currentColor;
     }
+}
+/* ===== Markdown Styles in Chat ===== */
+.copilot-message-content h1,
+.copilot-message-content h2,
+.copilot-message-content h3,
+.copilot-message-content h4,
+.copilot-message-content h5,
+.copilot-message-content h6 {
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.copilot-message-content h1 { font-size: 1.5em; }
+.copilot-message-content h2 { font-size: 1.3em; }
+.copilot-message-content h3 { font-size: 1.1em; }
+
+.copilot-message-content p {
+    margin-bottom: 8px;
+}
+
+.copilot-message-content ul,
+.copilot-message-content ol {
+    margin-bottom: 2px;
+}
+
+.copilot-message-content li {
+    margin-bottom: 4px;
+}
+
+.copilot-message-content blockquote {
+    border-left: 3px solid var(--interactive-accent);
+    padding-left: 12px;
+    margin: 8px 0;
+    color: var(--text-muted);
+}
+
+.copilot-message-content code {
+    background: var(--background-primary);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: var(--font-monospace);
+    font-size: 0.9em;
+}
+
+.copilot-message-content pre {
+    background: var(--background-primary);
+    padding: 12px;
+    border-radius: var(--copilot-radius);
+    overflow-x: auto;
+    margin: 8px 0;
+}
+
+.copilot-message-content pre code {
+    background: none;
+    padding: 0;
+}
+
+.copilot-message-content table {
+    border-collapse: collapse;
+    margin: 8px 0;
+    width: 100%;
+}
+
+.copilot-message-content th,
+.copilot-message-content td {
+    border: 1px solid var(--background-modifier-border);
+    padding: 6px 12px;
+    text-align: left;
+}
+
+.copilot-message-content th {
+    background: var(--background-secondary);
+    font-weight: 600;
+}
+
+.copilot-message-content a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+.copilot-message-content a:hover {
+    color: var(--link-color-hover);
+    text-decoration: underline;
+}
+
+.copilot-message-content hr {
+    border: none;
+    border-top: 1px solid var(--background-modifier-border);
+    margin: 16px 0;
+}
+
+/* Fix for existing code block styles to work with markdown renderer */
+.copilot-message-content .copy-code-button {
+    display: none; /* Hide Obsidian's default copy button */
 }

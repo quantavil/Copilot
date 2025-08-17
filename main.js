@@ -1,5 +1,5 @@
 // ===== IMPORTS AND CONSTANTS =====
-const { Plugin, PluginSettingTab, Setting, Modal, Notice, ItemView, WorkspaceLeaf, Menu, Editor, MarkdownView, requestUrl, EditorSuggest, TFile } = require('obsidian');
+const { Plugin, PluginSettingTab, Setting, Modal, Notice, ItemView, WorkspaceLeaf, Menu, Editor, MarkdownView, requestUrl, EditorSuggest, TFile, MarkdownRenderer } = require('obsidian');
 const COPILOT_VIEW_TYPE = 'copilot-chat-view';
 const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 
@@ -858,12 +858,12 @@ ${content}
 
         if (isLoading) {
             messageEl.innerHTML = `
-                <div class="copilot-loading">
-                    <div class="copilot-loading-dot"></div>
-                    <div class="copilot-loading-dot"></div>
-                    <div class="copilot-loading-dot"></div>
-                </div>
-            `;
+            <div class="copilot-loading">
+                <div class="copilot-loading-dot"></div>
+                <div class="copilot-loading-dot"></div>
+                <div class="copilot-loading-dot"></div>
+            </div>
+        `;
             return messageEl;
         }
 
@@ -884,49 +884,17 @@ ${content}
         }
 
         if (type === 'assistant') {
-            const codeBlockRegex = /```(\w*)\n([\s\S]*?)\n```/g;
-            let lastIndex = 0;
-            let match;
-
-            while ((match = codeBlockRegex.exec(content)) !== null) {
-                // Add text before the code block
-                if (match.index > lastIndex) {
-                    messageContentEl.createDiv({
-                        text: content.substring(lastIndex, match.index)
-                    });
-                }
-
-                const lang = match[1] || 'code';
-                const code = match[2];
-
-                const codeBlockWrapper = messageContentEl.createDiv({ cls: 'copilot-code-block-wrapper' });
-
-                const header = codeBlockWrapper.createDiv({ cls: 'copilot-code-block-header' });
-                header.createSpan({ text: lang, cls: 'copilot-code-block-lang' });
-
-                const copyButton = header.createEl('button', { cls: 'copilot-copy-button' });
-                copyButton.innerHTML = `<svg class="copilot-copy-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span class="copilot-copy-text">Copy</span>`;
-                copyButton.addEventListener('click', () => {
-                    navigator.clipboard.writeText(code);
-                    new Notice('Copied to clipboard');
-                });
-
-                const pre = codeBlockWrapper.createEl('pre');
-                const codeEl = pre.createEl('code', { text: code });
-
-                lastIndex = codeBlockRegex.lastIndex;
-            }
-
-            // Add remaining text after the last code block
-            if (lastIndex < content.length) {
-                messageContentEl.createDiv({
-                    text: content.substring(lastIndex)
-                });
-            }
+            // Use Obsidian's markdown renderer
+            MarkdownRenderer.render(
+                this.app,
+                content,
+                messageContentEl,
+                '',
+                this
+            );
         } else {
             messageContentEl.setText(content);
         }
-
 
         // Add timestamp
         const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
