@@ -342,6 +342,7 @@ class CopilotChatView extends ItemView {
         this.promptHistory = [];
         this.promptHistoryIndex = -1;
         this.canvasFile = null;
+        this.canvasOutputOnly = false;
     }
 
     getViewType() {
@@ -396,6 +397,7 @@ class CopilotChatView extends ItemView {
             this.chatContainer.empty();
             this.addWelcomeMessage();
             this.canvasFile = null;
+            this.canvasOutputOnly = false;
             new Notice('Started new chat');
         });
 
@@ -541,6 +543,7 @@ class CopilotChatView extends ItemView {
             await this.saveCurrentSession();
         }
         this.canvasFile = null;
+        this.canvasOutputOnly = false;
     }
 
     checkForSuggestions() {
@@ -749,6 +752,12 @@ class CopilotChatView extends ItemView {
             this.inputEl.value = '';
             this.inputEl.style.height = 'auto';
             return;
+        } else if (message === '/canvas -o') {
+            this.canvasOutputOnly = true;
+            this.createCanvasFile();
+            this.inputEl.value = '';
+            this.inputEl.style.height = 'auto';
+            return;
         }
 
         // Add to prompt history
@@ -943,8 +952,15 @@ ${content}
         this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
 
         if (this.canvasFile) {
-            const formattedMessage = `**${type === 'user' ? 'User' : 'Copilot'}**: ${content}\n\n`;
-            this.app.vault.append(this.canvasFile, formattedMessage);
+            if (this.canvasOutputOnly) {
+                if (type === 'assistant') {
+                    const formattedMessage = `${content}\n\n---\n\n`;
+                    this.app.vault.append(this.canvasFile, formattedMessage);
+                }
+            } else {
+                const formattedMessage = `**${type === 'user' ? 'User' : 'Copilot'}**: ${content}\n\n`;
+                this.app.vault.append(this.canvasFile, formattedMessage);
+            }
         }
 
         return messageEl;
