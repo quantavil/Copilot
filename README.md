@@ -1,6 +1,6 @@
 # Obsidian Copilot
 
-Bring AI into your notes with custom commands powered by Gemini API. Type `/canvas` to save your conversation..
+Bring AI into your notes with custom commands powered by Gemini API. Type `/canvas` to save your conversation, or `/canvas -o` to save only the output..
 
 This is an Obsidian plugin that allows you to use Google's Gemini AI to interact with your notes. It provides a chat interface and allows you to define custom commands to process text selections or entire notes.
 
