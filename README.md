@@ -1,50 +1,57 @@
-# Obsidian Copilot
+# Obsidian Copilot: Your AI-Powered Second Brain
 
-Bring AI into your notes with custom commands powered by Gemini API. Type `/canvas` to save your conversation, or `/canvas -o` to save only the output..
-
-This is an Obsidian plugin that allows you to use Google's Gemini AI to interact with your notes. It provides a chat interface and allows you to define custom commands to process text selections or entire notes.
+Obsidian Copilot brings the power of Google's Gemini API directly into your Obsidian vault. It's more than just a chatbot; it's a powerful tool for thought, designed to help you write, refactor, and think better.
 
 ## Features
 
-*   **AI Chat View**: A sidebar chat view to talk with Gemini AI.
-*   **Custom Commands**: Create and customize your own commands to process text.
-*   **Context-Aware**: Use content from your current note, linked notes, or notes with specific tags in your prompts.
-*   **Slash Commands**: Access your custom commands directly in the editor using `/`.
-*   **Bulk Actions**: Perform AI actions on multiple notes at once, based on tags, folders, or links.
-*   **Flexible Output**: Choose to replace selected text directly or view the AI output in a modal to copy or append.
+- **🤖 AI Chat Assistant:** A dedicated sidebar for conversational AI. Ask questions, brainstorm ideas, and get instant feedback without leaving Obsidian.
+- **✨ Custom AI Commands:** Create your own commands to process and transform your notes. Summarize, translate, refactor, or analyze text with a single click.
+- **🧠 Context-Aware Prompts:** Enhance your prompts with the content of your current note, linked notes, or notes with specific tags.
+- **⚡️ Slash Commands:** Access your custom commands instantly from the editor by typing `/`.
+- **✍️ Flexible Output:** Choose to have AI-generated content replace your selected text or view it in a modal to copy and paste.
+- **📄 Canvas Integration:** Save your conversations to a new "canvas" file using `/canvas`. You can also work on a specific file by setting it as a "context file" with `/canvas -f [[Note Title]]`.
+- **MODEL SELECTION:** Choose between different Gemini models (`gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`) directly from the chat interface.
+- **CHAT HISTORY:** Your chat history is saved and can be accessed from the chat view.
+
+## Getting Started
+
+1.  **Installation:**
+    - **Recommended:** Install directly from the Obsidian Community Plugins browser.
+    - **Manual:** Download the latest release from the [releases page](https://github.com/quantavil/obsidian-copilot/releases) and extract the files into your vault's `.obsidian/plugins` directory.
+2.  **Enable the Plugin:** Go to `Settings` -> `Community Plugins` and enable "Copilot".
+3.  **Add Your API Key:**
+    - Open the Copilot settings in Obsidian.
+    - Paste your Google Gemini API key. You can get one from [Google AI Studio](https://aistudio.google.com/app/apikey).
+    - Click "Verify" to confirm your key is working.
 
 ## How to Use
 
-1.  **Install the plugin**: Download the files from the latest release and place them in your Obsidian vault's `.obsidian/plugins` directory.
-2.  **Enable the plugin**: Go to `Settings` -> `Community plugins` and enable "Copilot".
-3.  **Configure the API Key**:
-    *   Go to the plugin settings for "Copilot".
-    *   Enter your Google Gemini API key. You can get one from [Google AI Studio](https://aistudio.google.com/app/apikey).
-    *   Click "Verify" to make sure your API key is working.
-4.  **Start a Chat**:
-    *   Click the "Copilot Chat" icon in the ribbon (left sidebar) to open the chat view.
-    *   Type your questions and press Enter to chat with the AI.
-5.  **Use Commands**:
-    *   Select some text in the editor.
-    *   Right-click and choose a command from the "Copilot Actions" submenu.
-    *   Alternatively, type `/` in the editor to see a list of available commands.
+- **Chat:** Click the "Copilot Chat" icon in the ribbon to open the chat view.
+- **Commands:**
+    - Select text in the editor.
+    - Right-click and choose a command from the "Copilot Actions" menu.
+    - Or, type `/` in the editor to see a list of your custom commands.
 
-## Settings
+## Customization
 
-*   **Gemini API Key**: Your API key for the Gemini API.
-*   **Default Model**: Choose the Gemini model to use (e.g., `gemini-1.5-flash`).
-*   **System Prompt**: A custom instruction to guide the AI's behavior for all interactions.
-*   **Custom Commands**:
-    *   **Add New Command**: Create a new custom command.
-    *   **Command Name**: The name of the command that will appear in the menu.
-    *   **Prompt Template**: The prompt to send to the AI. Use the following placeholders:
-        *   `{}`: The currently selected text.
-        *   `{activeNote}`: The content of the current note.
-        *   `{[[Note Title]]}`: The content of a linked note.
-        *   `{#tag}`: The content of all notes with a specific tag.
-    *   **Enabled/Disabled**: Toggle commands on or off.
-    *   **Direct Replace/Show Output**: Choose whether the command replaces the selection directly or shows the output in a modal.
+Create powerful, personalized workflows with custom commands:
+
+- **Command Name:** A descriptive name for your command.
+- **Prompt Template:** The instruction for the AI. Use these placeholders to make your prompts dynamic:
+    - `{}`: The currently selected text.
+    - `{activeNote}`: The content of the current note.
+    - `{[[Note Title]]}`: The content of a linked note.
+    - `{#tag}`: The content of all notes with a specific tag.
+- **Output:** Choose to either replace the selected text or show the output in a modal.
+
+## Contributing
+
+This plugin is an open-source project. We welcome contributions of all kinds. Please feel free to open an issue or submit a pull request on our [GitHub repository](https://github.com/quantavil/obsidian-copilot).
+
+## Disclaimer
+
+This plugin uses the Google Gemini API, which is a third-party service. Your use of the API is subject to Google's terms of service and privacy policy. Please be mindful of the data you send to the API.
 
 ## License
 
-This plugin is licensed under the [MIT License](LICENSE).
+This plugin is licensed under the MIT License.
