@@ -245,44 +245,54 @@ class CopilotPlugin extends Plugin {
                 parts: [{ text: input }]
             }];
 
-        const requestBody = { contents };
+        const requestBody = {
+            contents,
+            ...(this.settings.systemPrompt
+                ? { system_instruction: { parts: [{ text: this.settings.systemPrompt }] } }
+                : {})
+        };
 
-        if (this.settings.systemPrompt) {
-            requestBody.system_instruction = {
-                parts: [{ text: this.settings.systemPrompt }]
-            };
-        }
-
+        let res;
         try {
-            const response = await requestUrl({
-                url,
+            res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody),
-                throw: false
+                signal: abortSignal
             });
-
-            if (response.status === 401 || response.status === 403) {
-                // Invalidate verification if the key is rejected
-                this.settings.apiVerified = false;
-                await this.saveSettings();
-                throw new Error(`API key invalid or unauthorized (status ${response.status})`);
-            }
-
-            const candidate = response.json?.candidates?.[0];
-            const parts = candidate?.content?.parts || [];
-            const text = parts.map(p => p.text || '').join('').trim();
-
-            if (text) return text;
-
-            throw new Error('Invalid response from API');
         } catch (error) {
             if (error.name === 'AbortError') {
                 throw new Error('Generation stopped by user');
             }
-            console.error('Gemini API error:', error);
+            console.error('Gemini API network error:', error);
             throw error;
         }
+
+        let json = null;
+        try {
+            json = await res.json();
+        } catch (_) {
+            // ignore JSON parse errors; will handle below
+        }
+
+        if (res.status === 401 || res.status === 403) {
+            this.settings.apiVerified = false;
+            await this.saveSettings();
+            const msg = json?.error?.message || `API key invalid or unauthorized (status ${res.status})`;
+            throw new Error(msg);
+        }
+
+        if (!res.ok) {
+            const msg = json?.error?.message || `HTTP ${res.status}`;
+            throw new Error(msg);
+        }
+
+        const parts = json?.candidates?.[0]?.content?.parts || [];
+        const text = parts.map(p => p.text || '').join('').trim();
+
+        if (text) return text;
+
+        throw new Error('Invalid response from API');
     }
 
     async verifyAPIKey(apiKey) {
@@ -581,7 +591,7 @@ class CopilotChatView extends ItemView {
         }
 
         // Check for tags
-        const tagMatch = textBeforeCursor.match(/#(\w*)$/);
+        const tagMatch = textBeforeCursor.match(/#([A-Za-z0-9\/_-]*)$/);
         if (tagMatch) {
             this.showTagSuggestions(tagMatch[1]);
             return;
@@ -738,7 +748,7 @@ class CopilotChatView extends ItemView {
             replaceLength = match ? match[0].length : 0;
             newText = '[[' + suggestion.value + ']]';
         } else if (suggestion.type === 'tag') {
-            const match = textBeforeCursor.match(/#(\w*)$/);
+            const match = textBeforeCursor.match(/#([A-Za-z0-9\/_-]*)$/);
             replaceLength = match ? match[0].length : 0;
             newText = '#' + suggestion.value + ' ';
         }
@@ -1658,3 +1668,4 @@ class CommandEditModal extends Modal {
 
 // ===== EXPORT PLUGIN =====
 module.exports = CopilotPlugin;
+
