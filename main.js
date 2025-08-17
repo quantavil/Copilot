@@ -466,7 +466,13 @@ class CopilotChatView extends ItemView {
         this.inputEl.addEventListener('keydown', (e) => {
             // Handle suggestions navigation
             if (this.suggestionsEl.style.display !== 'none') {
-                if (e.key === 'ArrowDown') {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    if (this.selectedSuggestionIndex >= 0) {
+                        this.selectSuggestion(this.selectedSuggestionIndex);
+                    }
+                    return;
+                } else if (e.key === 'ArrowDown') {
                     e.preventDefault();
                     this.navigateSuggestions(1);
                     return;
@@ -475,10 +481,6 @@ class CopilotChatView extends ItemView {
                     this.navigateSuggestions(-1);
                     return;
                 } else if (e.key === 'Enter' && this.selectedSuggestionIndex >= 0) {
-                    e.preventDefault();
-                    this.selectSuggestion(this.selectedSuggestionIndex);
-                    return;
-                } else if (e.key === 'Tab' && this.selectedSuggestionIndex >= 0) {
                     e.preventDefault();
                     this.selectSuggestion(this.selectedSuggestionIndex);
                     return;
