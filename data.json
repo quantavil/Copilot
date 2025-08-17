@@ -6,9 +6,37 @@
     {
       "id": "custom-1755370719011",
       "name": "Fix Grammar",
-      "prompt": "Given {}, correct grammar, spelling, and clarity while preserving tone.",
+      "prompt": "Fix the grammar and spelling of {}. Preserve all formatting, line breaks, and special characters. Do not add or remove any content. Return only the corrected text.",
       "enabled": true,
       "directReplace": true
+    },
+    {
+      "id": "custom-1755414250600",
+      "name": "Reframer",
+      "prompt": "You are a Question Reframer. Reframe the given question {} by renaming entities (people, places, objects, color) and adjusting dates to be realistic and consistent, while improving the structure, meaning, and flow unchanged.",
+      "enabled": true,
+      "directReplace": false
+    },
+    {
+      "id": "custom-1755414275835",
+      "name": "summarize",
+      "prompt": "Create a bullet-point summary of {}. Each bullet point should capture a key point. Return only the bullet-point summary.",
+      "enabled": true,
+      "directReplace": false
+    },
+    {
+      "id": "custom-1755414296751",
+      "name": "Table Format",
+      "prompt": "Convert the given data  {} to proper markdown table.",
+      "enabled": true,
+      "directReplace": false
+    },
+    {
+      "id": "custom-1755414330285",
+      "name": "Glossary",
+      "prompt": "Create a glossary of important terms, concepts, and phrases from {}. Format each entry as \"Term: Definition\". Sort entries alphabetically. Return only the glossary.",
+      "enabled": true,
+      "directReplace": false
     }
   ],
   "directReplace": false,
