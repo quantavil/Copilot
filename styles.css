@@ -67,15 +67,20 @@ button {
 }
 
 .copilot-send-button {
-    width: 36px;
-    height: 36px;
-    background: var(--interactive-accent);
-    color: var(--text-on-accent);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.copilot-send-button.is-loading {
+    background: var(--background-modifier-error);
+}
+
+.copilot-send-button.is-loading:hover {
+    background: var(--background-modifier-error-hover);
+    transform: scale(1.05);
+}
+
+.copilot-send-button svg {
+    transition: opacity 0.15s ease;
 }
 
 .copilot-send-button:hover {
@@ -98,8 +103,15 @@ button {
 }
 
 @keyframes messageSlide {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .copilot-message.user {
@@ -311,8 +323,13 @@ button {
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .copilot-welcome-icon {
@@ -346,14 +363,23 @@ button {
     animation: pulse 1.4s ease-in-out infinite;
 }
 
-.copilot-loading-dot:nth-child(1) { animation-delay: -0.32s; }
-.copilot-loading-dot:nth-child(2) { animation-delay: -0.16s; }
+.copilot-loading-dot:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.copilot-loading-dot:nth-child(2) {
+    animation-delay: -0.16s;
+}
 
 @keyframes pulse {
-    0%, 80%, 100% {
+
+    0%,
+    80%,
+    100% {
         opacity: 0.3;
         transform: scale(0.8);
     }
+
     40% {
         opacity: 1;
         transform: scale(1);
@@ -506,11 +532,12 @@ button {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
 /* ===== Scrollbar Styling ===== */
 .copilot-chat-container::-webkit-scrollbar,
 .copilot-suggestions::-webkit-scrollbar,
 .copilot-output-container::-webkit-scrollbar {
-    width: 4px;
+    width: 8px;
 }
 
 .copilot-chat-container::-webkit-scrollbar-track,
@@ -523,7 +550,9 @@ button {
 .copilot-suggestions::-webkit-scrollbar-thumb,
 .copilot-output-container::-webkit-scrollbar-thumb {
     background: var(--background-modifier-border);
-    border-radius: 2px;
+    border-radius: 4px;
+    min-height: 40px;
+    /* Pill size */
 }
 
 .copilot-chat-container::-webkit-scrollbar-thumb:hover,
@@ -621,24 +650,24 @@ button {
     .copilot-sidebar-container {
         font-size: 14px;
     }
-    
+
     .copilot-message {
         max-width: 90%;
     }
-    
+
     .copilot-model-pill {
         font-size: 10px;
         padding: 3px 8px;
     }
-    
+
     .copilot-header {
         padding: 8px 12px;
     }
-    
+
     .copilot-chat-container {
         padding: 12px;
     }
-    
+
     .copilot-bottom-section {
         padding: 12px;
     }
@@ -670,16 +699,17 @@ button:focus-visible {
 
 /* ===== Print Styles ===== */
 @media print {
+
     .copilot-header,
     .copilot-bottom-section,
     .copilot-copy-button {
         display: none;
     }
-    
+
     .copilot-chat-container {
         padding: 0;
     }
-    
+
     .copilot-message {
         max-width: 100%;
         margin-bottom: 16px;
@@ -701,15 +731,16 @@ button:focus-visible {
     .copilot-message {
         border: 2px solid currentColor;
     }
-    
+
     .copilot-input {
         border-width: 2px;
     }
-    
+
     .copilot-copy-button {
         border: 1px solid currentColor;
     }
 }
+
 /* ===== Markdown Styles in Chat ===== */
 .copilot-message-content h1,
 .copilot-message-content h2,
@@ -722,9 +753,17 @@ button:focus-visible {
     font-weight: 600;
 }
 
-.copilot-message-content h1 { font-size: 1.5em; }
-.copilot-message-content h2 { font-size: 1.3em; }
-.copilot-message-content h3 { font-size: 1.1em; }
+.copilot-message-content h1 {
+    font-size: 1.5em;
+}
+
+.copilot-message-content h2 {
+    font-size: 1.3em;
+}
+
+.copilot-message-content h3 {
+    font-size: 1.1em;
+}
 
 .copilot-message-content p {
     margin-bottom: 0.5rem;
@@ -738,7 +777,7 @@ button:focus-visible {
 
 .copilot-message-content ul ul,
 .copilot-message-content ol ol {
-  padding-left: 0.75rem;
+    padding-left: 0.75rem;
 }
 
 
@@ -810,5 +849,36 @@ button:focus-visible {
 
 /* Fix for existing code block styles to work with markdown renderer */
 .copilot-message-content .copy-code-button {
-    display: none; /* Hide Obsidian's default copy button */
+    display: none;
+    /* Hide Obsidian's default copy button */
+}
+
+/* ===== History Menu Styles ===== */
+.copilot-history-menu {
+    min-width: 300px;
+}
+
+.copilot-history-item {
+    padding: 8px 12px !important;
+    cursor: pointer;
+}
+
+.copilot-history-item:hover {
+    background: var(--background-modifier-hover);
+}
+
+.copilot-history-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-normal);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.copilot-history-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    opacity: 0.8;
 }

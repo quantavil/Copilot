@@ -43,8 +43,96 @@
   "apiVerified": true,
   "chatHistory": [
     {
+      "id": "1755430018403",
+      "timestamp": 1755430114024,
+      "messages": [
+        {
+          "type": "user",
+          "content": "hi",
+          "timestamp": 1755430026774
+        },
+        {
+          "type": "assistant",
+          "content": "Hi there! How can I help you today? 😊",
+          "timestamp": 1755430029105
+        },
+        {
+          "type": "user",
+          "content": "ok",
+          "timestamp": 1755430111700
+        },
+        {
+          "type": "assistant",
+          "content": "Great! What's on your mind? Do you have a question, a task you need help with, or are you just looking to chat?",
+          "timestamp": 1755430114020
+        }
+      ],
+      "title": "hi"
+    },
+    {
+      "id": "1755429782583",
+      "timestamp": 1755430013772,
+      "messages": [
+        {
+          "type": "user",
+          "content": "hi",
+          "timestamp": 1755429802100
+        },
+        {
+          "type": "assistant",
+          "content": "Hi there! How can I help you today?",
+          "timestamp": 1755429804518
+        },
+        {
+          "type": "user",
+          "content": "i know you",
+          "timestamp": 1755429813608
+        },
+        {
+          "type": "assistant",
+          "content": "That's interesting! As a large language model, I don't have personal memories or recognize individuals. However, it's possible you've interacted with me or a similar AI before.\n\nPerhaps you remember:\n\n*   **The context of our previous interaction?** What were we talking about?\n*   **A specific feature or capability I demonstrated?**\n*   **Something else that made me memorable?**\n\nI'm always learning and evolving, so I'm curious to know what makes you say that! 😊",
+          "timestamp": 1755429815033
+        }
+      ],
+      "title": "hi"
+    },
+    {
+      "id": "1755428961388",
+      "timestamp": 1755429777798,
+      "messages": [
+        {
+          "type": "user",
+          "content": "kojihu",
+          "timestamp": 1755428965926
+        },
+        {
+          "type": "assistant",
+          "content": "\"Kojihu\" is not a recognized word in English or any commonly known language. It's possible it's:\n\n*   **A typo:** You might have intended to type something else.\n*   **A proper noun:** It could be a name of a person, place, or organization.\n*   **A word in a less common language or dialect:** It might belong to a language that isn't widely known.\n*   **A made-up word:** It could be something you or someone else invented.\n*   **Part of a larger phrase or context:** Without more information, it's hard to determine its meaning.\n\n**To help me understand what you mean, could you please provide more context? For example:**\n\n*   Where did you encounter this word?\n*   What were you trying to say or ask?\n*   Do you know what language it might be from?\n\nThe more information you can give me, the better I can assist you!",
+          "timestamp": 1755428968882
+        }
+      ],
+      "title": "kojihu"
+    },
+    {
+      "id": "1755428821461",
+      "timestamp": 1755428957078,
+      "messages": [
+        {
+          "type": "user",
+          "content": "think what come before a",
+          "timestamp": 1755428836156
+        },
+        {
+          "type": "assistant",
+          "content": "In the standard English alphabet, **'a' is the first letter**.\n\nTherefore, **no letter comes before it**.",
+          "timestamp": 1755428841230
+        }
+      ],
+      "title": "think what come before a"
+    },
+    {
       "id": "1755427855943",
-      "timestamp": 1755427913651,
+      "timestamp": 1755428817726,
       "messages": [
         {
           "type": "user",

@@ -234,7 +234,7 @@ class CopilotPlugin extends Plugin {
         return processed;
     }
 
-    async callGeminiAPI(input) {
+    async callGeminiAPI(input, abortSignal) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${this.settings.apiKey}`;
 
         // Accept either a raw string prompt or a full Gemini `contents` array
@@ -258,7 +258,8 @@ class CopilotPlugin extends Plugin {
                 url,
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify(requestBody),
+                throw: false
             });
 
             if (response.status === 401 || response.status === 403) {
@@ -276,6 +277,9 @@ class CopilotPlugin extends Plugin {
 
             throw new Error('Invalid response from API');
         } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error('Generation stopped by user');
+            }
             console.error('Gemini API error:', error);
             throw error;
         }
@@ -430,6 +434,9 @@ class CopilotChatView extends ItemView {
         });
         sendButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`;
 
+        // track loading state
+        this.isLoading = false;
+
         // Model selector (minimal design)
         const modelContainer = bottomSection.createDiv('copilot-model-container');
 
@@ -463,7 +470,13 @@ class CopilotChatView extends ItemView {
         });
 
         // Event listeners
-        sendButton.addEventListener('click', () => this.sendMessage());
+        sendButton.addEventListener('click', () => {
+            if (this.isLoading) {
+                this.stopGeneration();
+            } else {
+                this.sendMessage();
+            }
+        });
 
         this.inputEl.addEventListener('keydown', (e) => {
             // Handle suggestions navigation
@@ -789,13 +802,17 @@ class CopilotChatView extends ItemView {
         // Show loading spinner message
         const loadingEl = this.addMessage('assistant', '', true);
 
+        // Create abort controller for this request
+        this.abortController = new AbortController();
+        this.updateSendButton(true);
+
         try {
             // If a working file is active, all operations should target it
             if (this.contextFile) {
                 const action = this.detectContextAction(message); // 'replace' | 'append' | 'ask'
                 const fileContent = await this.app.vault.read(this.contextFile);
                 const prompt = this.buildContextFilePrompt(fileContent, message, action);
-                const response = await this.plugin.callGeminiAPI(prompt);
+                const response = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
 
                 // Remove spinner and add assistant response to chat
                 loadingEl.remove();
@@ -841,13 +858,14 @@ class CopilotChatView extends ItemView {
                     if (!textToProcess && command.prompt.includes('{}')) {
                         new Notice(`Please select text or provide arguments for the ${command.name} command.`);
                         loadingEl.remove();
+                        this.updateSendButton(false);
                         return;
                     }
 
                     prompt = await this.plugin.processPrompt(command.prompt, textToProcess, activeView);
 
                     // One-shot command: no chat history for /commands
-                    const response = await this.plugin.callGeminiAPI(prompt);
+                    const response = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
 
                     loadingEl.remove();
                     this.addMessage('assistant', response);
@@ -878,7 +896,7 @@ class CopilotChatView extends ItemView {
                 parts: [{ text: m.content }]
             }));
 
-            const response = await this.plugin.callGeminiAPI(contents);
+            const response = await this.plugin.callGeminiAPI(contents, this.abortController.signal);
 
             // Remove loading and add response
             loadingEl.remove();
@@ -889,8 +907,33 @@ class CopilotChatView extends ItemView {
 
         } catch (error) {
             loadingEl.remove();
-            this.addMessage('assistant', `Error: ${error.message}`);
+            if (error.message !== 'Generation stopped by user') {
+                this.addMessage('assistant', `Error: ${error.message}`);
+            }
+        } finally {
+            this.updateSendButton(false);
         }
+    }
+
+    updateSendButton(isLoading) {
+        this.isLoading = isLoading;
+        const sendButton = this.containerEl.querySelector('.copilot-send-button');
+
+        if (isLoading) {
+            sendButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12"/></svg>`;
+            sendButton.setAttribute('aria-label', 'Stop generation');
+            sendButton.classList.add('is-loading');
+        } else {
+            sendButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`;
+            sendButton.setAttribute('aria-label', 'Send message');
+            sendButton.classList.remove('is-loading');
+        }
+    }
+
+    stopGeneration() {
+        this.abortController?.abort();
+        this.updateSendButton(false);
+        new Notice('Generation stopped');
     }
 
     async createCanvasFile() {
@@ -1183,6 +1226,7 @@ ${userMessage}`;
 
     showHistoryMenu(button) {
         const menu = new Menu();
+        menu.dom.addClass('copilot-history-menu');
 
         if (this.plugin.settings.chatHistory.length === 0) {
             menu.addItem((item) => {
@@ -1200,14 +1244,24 @@ ${userMessage}`;
                 });
 
                 menu.addItem((item) => {
-                    item.setTitle(`${session.title} — ${timeStr} • ${session.messages.length} messages`)
-                        .onClick(async () => {
-                            // Save current session before switching
-                            if (this.messages.length > 0 && this.currentSessionId !== session.id) {
-                                await this.saveCurrentSession();
-                            }
-                            await this.loadSession(session.id);
-                        });
+                    const itemDom = item.dom;
+                    itemDom.addClass('copilot-history-item');
+
+                    // Create custom content
+                    itemDom.empty();
+                    const titleEl = itemDom.createDiv('copilot-history-title');
+                    titleEl.setText(session.title);
+
+                    const metaEl = itemDom.createDiv('copilot-history-meta');
+                    metaEl.setText(`${timeStr} • ${session.messages.length} messages`);
+
+                    item.onClick(async () => {
+                        // Save current session before switching
+                        if (this.messages.length > 0 && this.currentSessionId !== session.id) {
+                            await this.saveCurrentSession();
+                        }
+                        await this.loadSession(session.id);
+                    });
                 });
             });
 
@@ -1229,6 +1283,7 @@ ${userMessage}`;
         const rect = button.getBoundingClientRect();
         menu.showAtPosition({ x: rect.left, y: rect.bottom });
     }
+
 }
 
 // ===== SLASH COMMAND SUGGESTOR =====
