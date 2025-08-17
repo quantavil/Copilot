@@ -489,31 +489,6 @@ button {
     color: rgb(239, 68, 68);
 }
 
-/* ===== Bulk Action Modal ===== */
-.copilot-bulk-section {
-    margin-bottom: 20px;
-}
-
-.copilot-bulk-title {
-    font-weight: 600;
-    margin-bottom: 12px;
-}
-
-.copilot-bulk-input {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--background-modifier-border);
-    border-radius: 4px;
-    background: var(--background-secondary);
-    color: var(--text-normal);
-}
-
-.copilot-bulk-preview-item {
-    padding: 4px 0;
-    font-size: 13px;
-    color: var(--text-muted);
-}
-
 /* ===== Slash Command Popup ===== */
 .suggestion-container .copilot-slash-item.is-selected {
     background: var(--background-modifier-hover);
@@ -531,34 +506,29 @@ button {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
 /* ===== Scrollbar Styling ===== */
 .copilot-chat-container::-webkit-scrollbar,
 .copilot-suggestions::-webkit-scrollbar,
-.copilot-output-container::-webkit-scrollbar,
-.copilot-bulk-preview::-webkit-scrollbar {
-    width: 6px;
+.copilot-output-container::-webkit-scrollbar {
+    width: 4px;
 }
 
 .copilot-chat-container::-webkit-scrollbar-track,
 .copilot-suggestions::-webkit-scrollbar-track,
-.copilot-output-container::-webkit-scrollbar-track,
-.copilot-bulk-preview::-webkit-scrollbar-track {
+.copilot-output-container::-webkit-scrollbar-track {
     background: transparent;
 }
 
 .copilot-chat-container::-webkit-scrollbar-thumb,
 .copilot-suggestions::-webkit-scrollbar-thumb,
-.copilot-output-container::-webkit-scrollbar-thumb,
-.copilot-bulk-preview::-webkit-scrollbar-thumb {
+.copilot-output-container::-webkit-scrollbar-thumb {
     background: var(--background-modifier-border);
-    border-radius: 3px;
+    border-radius: 2px;
 }
 
 .copilot-chat-container::-webkit-scrollbar-thumb:hover,
 .copilot-suggestions::-webkit-scrollbar-thumb:hover,
-.copilot-output-container::-webkit-scrollbar-thumb:hover,
-.copilot-bulk-preview::-webkit-scrollbar-thumb:hover {
+.copilot-output-container::-webkit-scrollbar-thumb:hover {
     background: var(--background-modifier-border-hover);
 }
 
