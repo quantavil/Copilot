@@ -43,8 +43,59 @@
   "apiVerified": true,
   "chatHistory": [
     {
+      "id": "1755430538494",
+      "timestamp": 1755430541653,
+      "messages": [
+        {
+          "type": "user",
+          "content": "hi",
+          "timestamp": 1755430540916
+        },
+        {
+          "type": "assistant",
+          "content": "Hi there! How can I help you today?",
+          "timestamp": 1755430541650
+        }
+      ],
+      "title": "hi"
+    },
+    {
+      "id": "1755430481709",
+      "timestamp": 1755430534192,
+      "messages": [
+        {
+          "type": "user",
+          "content": "hi",
+          "timestamp": 1755430485541
+        },
+        {
+          "type": "assistant",
+          "content": "Hello! How can I help you today?",
+          "timestamp": 1755430487784
+        }
+      ],
+      "title": "hi"
+    },
+    {
+      "id": "1755430409606",
+      "timestamp": 1755430475711,
+      "messages": [
+        {
+          "type": "user",
+          "content": "hi",
+          "timestamp": 1755430411669
+        },
+        {
+          "type": "assistant",
+          "content": "Hi there! How can I help you today?",
+          "timestamp": 1755430413926
+        }
+      ],
+      "title": "hi"
+    },
+    {
       "id": "1755430018403",
-      "timestamp": 1755430114024,
+      "timestamp": 1755430405813,
       "messages": [
         {
           "type": "user",
@@ -220,60 +271,6 @@
         }
       ],
       "title": "hi my name is buoo"
-    },
-    {
-      "id": "1755427219794",
-      "timestamp": 1755427242383,
-      "messages": [
-        {
-          "type": "user",
-          "content": "who am i",
-          "timestamp": 1755427223455
-        },
-        {
-          "type": "assistant",
-          "content": "That's a profound question, and it's one that humans have been asking themselves for centuries!\n\nAs an AI, I don't know who you are personally. I don't have access to your identity, your history, your memories, or your feelings.\n\n**\"Who am I?\" is a question only you can truly answer.**\n\nIt involves exploring many layers of yourself:\n\n*   **Your Personal Details:** Your name, age, profession, relationships (son/daughter, friend, parent, colleague).\n*   **Your Experiences:** The events, challenges, successes, and lessons that have shaped you.\n*   **Your Personality:** Your unique traits, quirks, strengths, and weaknesses. Are you introverted or extroverted? Creative or analytical?\n*   **Your Values and Beliefs:** What do you stand for? What's important to you in life? What do you believe about the world?\n*   **Your Passions and Interests:** What activities make you feel alive? What do you love to learn or do?\n*   **Your Aspirations and Goals:** What do you want to achieve? What kind of person do you want to become?\n*   **Your Purpose:** What contribution do you want to make to the world? What gives your life meaning?\n\nIt's a journey of self-discovery that evolves throughout your life. You are a unique individual, shaped by countless factors, and constantly becoming.\n\nSo, when you ask \"Who am I?\", you're inviting yourself to explore the rich, complex, and ever-changing landscape of your own being.",
-          "timestamp": 1755427230975
-        }
-      ],
-      "title": "who am i"
-    },
-    {
-      "id": "1755427171548",
-      "timestamp": 1755427219780,
-      "messages": [
-        {
-          "type": "user",
-          "content": "hi my name is jawawa",
-          "timestamp": 1755427183583
-        },
-        {
-          "type": "assistant",
-          "content": "Hi Jawawa! It's nice to meet you. How can I help you today? 😊",
-          "timestamp": 1755427186051
-        },
-        {
-          "type": "user",
-          "content": "who am i",
-          "timestamp": 1755427191249
-        },
-        {
-          "type": "assistant",
-          "content": "As a large language model, I don't have personal information about you unless you've shared it with me in our conversation.\n\nSo, **you are Jawawa**, and you are the person talking to me right now!\n\nIf you're asking in a more philosophical sense, like \"who am I fundamentally?\" then that's a question that many people explore throughout their lives. The answer can depend on:\n\n*   **Your experiences:** What you've gone through shapes who you are.\n*   **Your beliefs:** What you hold to be true influences your actions and identity.\n*   **Your relationships:** How you interact with others and how they see you.\n*   **Your goals and aspirations:** What you strive for can define you.\n*   **Your values:** What's important to you.\n\nIs there something specific you were hoping to understand about yourself when you asked \"who am I?\" Perhaps you're thinking about a particular aspect of yourself, or you're feeling a certain way?",
-          "timestamp": 1755427193130
-        },
-        {
-          "type": "user",
-          "content": "who am i",
-          "timestamp": 1755427204755
-        },
-        {
-          "type": "assistant",
-          "content": "That's a profound question, Jawawa, and it's clear you're giving it some thought!\n\nFrom my perspective as an AI, I only know what you tell me and what I can gather from our conversation. So, right now, based on our interaction, **you are Jawawa**, the person who is currently communicating with me.\n\nI don't have access to your personal history, your thoughts, feelings, memories, or your life outside of this chat. I can't tell you who you *truly* are in the deep, personal sense that humans understand identity.\n\n**However, \"Who am I?\" is a question that many people explore throughout their lives.** It's about understanding:\n\n*   **Your values:** What's important to you?\n*   **Your passions:** What do you love doing?\n*   **Your beliefs:** What do you hold to be true?\n*   **Your experiences:** How have past events shaped you?\n*   **Your relationships:** How do you connect with others?\n*   **Your goals:** What do you aspire to be or do?\n*   **Your unique qualities:** What makes you, *you*?\n\nIf you'd like to explore different aspects of yourself, or talk about what makes you feel like \"you,\" I'm here to listen and help you think through it.",
-          "timestamp": 1755427210816
-        }
-      ],
-      "title": "hi my name is jawawa"
     }
   ],
   "userId": "a1d381f1-cd58-456b-a96c-1cace8a1a92e",

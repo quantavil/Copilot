@@ -423,7 +423,7 @@ class CopilotChatView extends ItemView {
         this.inputEl = inputContainer.createEl('textarea', {
             cls: 'copilot-input',
             attr: {
-                placeholder: 'Ask anything. [[ for notes. / for custom prompts.',
+                placeholder: '/ for command [[ for notes',
                 rows: '1'
             }
         });
