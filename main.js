@@ -1014,42 +1014,29 @@ ${userMessage}`;
                 const file = this.app.metadataCache.getFirstLinkpathDest(noteName, '');
                 if (file) {
                     const content = await this.app.vault.read(file);
-                    processed = processed.replace(match, `
-
---- Content of ${noteName} ---
-${content}
---- End of ${noteName} ---
-`);
+                    processed = processed.replace(match, `--- Content of ${noteName} ---${content}--- End of ${noteName} ---`);
                 }
             }
         }
 
-        // Process #tag references
-        const tagMatches = processed.match(/#(\w+)/g);
-        if (tagMatches) {
-            for (const match of tagMatches) {
-                const tag = match;
-                const files = this.app.vault.getMarkdownFiles().filter(file => {
-                    const cache = this.app.metadataCache.getFileCache(file);
-                    return cache && cache.tags && cache.tags.some(t => t.tag === tag);
-                });
+        // Process #tag references (unique only, to avoid ballooning)
+        const tagTokens = new Set(processed.match(/#(\w+)/g) || []);
+        for (const tag of tagTokens) {
+            const files = this.app.vault.getMarkdownFiles().filter(file => {
+                const cache = this.app.metadataCache.getFileCache(file);
+                return cache && cache.tags && cache.tags.some(t => t.tag === tag);
+            });
 
-                if (files.length > 0) {
-                    let tagContent = `
-
---- Notes with tag ${tag} ---
-`;
-                    for (const file of files) {
-                        const content = await this.app.vault.read(file);
-                        tagContent += `
-### ${file.basename}
-${content}
-`;
-                    }
-                    tagContent += `--- End of ${tag} notes ---
-`;
-                    processed = processed.replace(match, tagContent);
+            if (files.length > 0) {
+                let tagContent = `--- Notes with tag: ${tag.substring(1)} ---`;
+                for (const file of files) {
+                    const content = await this.app.vault.read(file);
+                    tagContent += `### ${file.basename}${content}`;
                 }
+                tagContent += `--- End of tag: ${tag.substring(1)} ---`;
+
+                // Replace only the first occurrence for this tag to avoid repeated inserts
+                processed = processed.replace(tag, tagContent);
             }
         }
 
@@ -1205,18 +1192,17 @@ ${content}
                     .setDisabled(true);
             });
         } else {
-            this.plugin.settings.chatHistory.forEach((session, index) => {
-                menu.addItem((item) => {
-                    const date = new Date(session.timestamp);
-                    const timeStr = date.toLocaleString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
+            this.plugin.settings.chatHistory.forEach((session) => {
+                const date = new Date(session.timestamp);
+                const timeStr = date.toLocaleString([], {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
 
-                    item.setTitle(session.title)
-                        .setSection(`${timeStr} • ${session.messages.length} messages`)
+                menu.addItem((item) => {
+                    item.setTitle(`${session.title} — ${timeStr} • ${session.messages.length} messages`)
                         .onClick(async () => {
                             // Save current session before switching
                             if (this.messages.length > 0 && this.currentSessionId !== session.id) {
