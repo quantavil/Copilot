@@ -1,5 +1,5 @@
 // ===== IMPORTS AND CONSTANTS =====
-const { Plugin, PluginSettingTab, Setting, Modal, Notice, ItemView, WorkspaceLeaf, Menu, Editor, MarkdownView, requestUrl, EditorSuggest, TFile, MarkdownRenderer } = require('obsidian');
+const { Plugin, PluginSettingTab, Setting, Modal, Notice, ItemView, WorkspaceLeaf, Menu, Editor, MarkdownView, requestUrl, EditorSuggest, MarkdownRenderer } = require('obsidian');
 const COPILOT_VIEW_TYPE = 'copilot-chat-view';
 const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 
@@ -29,7 +29,6 @@ class CopilotPlugin extends Plugin {
             })
         );
 
-        // Register slash commands in editor
         // Register slash commands in editor
         this.registerEditorSuggest(new SlashCommandSuggestor(this.app, this));
 
@@ -136,7 +135,7 @@ class CopilotPlugin extends Plugin {
 
         menu.addSeparator();
 
-        const submenu = menu.addItem((item) => {
+        menu.addItem((item) => {
             item.setTitle('Copilot Actions')
                 .setIcon('bot');
             const subMenu = item.setSubmenu();
@@ -154,7 +153,6 @@ class CopilotPlugin extends Plugin {
             });
         });
     }
-
     async executeCommand(command, editor, view) {
         if (!this.settings.apiKey || !this.settings.apiVerified) {
             new Notice('Please configure your Gemini API key in settings');
@@ -1234,7 +1232,7 @@ ${userMessage}`;
 }
 
 // ===== SLASH COMMAND SUGGESTOR =====
-class SlashCommandSuggestor extends require('obsidian').EditorSuggest {
+class SlashCommandSuggestor extends EditorSuggest {
     constructor(app, plugin) {
         super(app);
         this.plugin = plugin;
