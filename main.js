@@ -236,40 +236,47 @@ class CopilotPlugin extends Plugin {
         return processed;
     }
 
-    async callGeminiAPI(prompt) {
+    async callGeminiAPI(input) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${this.settings.apiKey}`;
 
-        const requestBody = {
-            contents: [{
-                parts: [{
-                    text: prompt
-                }]
-            }]
-        };
+        // Accept either a raw string prompt or a full Gemini `contents` array
+        const contents = Array.isArray(input)
+            ? input
+            : [{
+                role: 'user',
+                parts: [{ text: input }]
+            }];
+
+        const requestBody = { contents };
 
         if (this.settings.systemPrompt) {
             requestBody.system_instruction = {
-                parts: [{
-                    text: this.settings.systemPrompt
-                }]
+                parts: [{ text: this.settings.systemPrompt }]
             };
         }
 
         try {
             const response = await requestUrl({
-                url: url,
+                url,
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody)
             });
 
-            if (response.json.candidates && response.json.candidates[0]) {
-                return response.json.candidates[0].content.parts[0].text;
-            } else {
-                throw new Error('Invalid response from API');
+            if (response.status === 401 || response.status === 403) {
+                // Invalidate verification if the key is rejected
+                this.settings.apiVerified = false;
+                await this.saveSettings();
+                throw new Error(`API key invalid or unauthorized (status ${response.status})`);
             }
+
+            const candidate = response.json?.candidates?.[0];
+            const parts = candidate?.content?.parts || [];
+            const text = parts.map(p => p.text || '').join('').trim();
+
+            if (text) return text;
+
+            throw new Error('Invalid response from API');
         } catch (error) {
             console.error('Gemini API error:', error);
             throw error;
@@ -840,13 +847,40 @@ class CopilotChatView extends ItemView {
                     }
 
                     prompt = await this.plugin.processPrompt(command.prompt, textToProcess, activeView);
+
+                    // One-shot command: no chat history for /commands
+                    const response = await this.plugin.callGeminiAPI(prompt);
+
+                    loadingEl.remove();
+                    this.addMessage('assistant', response);
+                    await this.saveCurrentSession();
+                    return;
                 }
             } else {
                 // Process any [[Note]] or #tag references in the message
                 prompt = await this.processChatPrompt(message);
             }
 
-            const response = await this.plugin.callGeminiAPI(prompt);
+            // Build multi-turn chat contents from recent history.
+            // Replace the most recent user message with the processed `prompt`.
+            const history = this.messages.slice();
+            if (history.length && history[history.length - 1].type === 'user') {
+                history[history.length - 1] = {
+                    ...history[history.length - 1],
+                    content: prompt
+                };
+            }
+
+            // Limit to the last N turns to keep requests small
+            const maxMessages = 12; // ~6 turns
+            const recent = history.slice(-maxMessages);
+
+            const contents = recent.map(m => ({
+                role: m.type === 'user' ? 'user' : 'model',
+                parts: [{ text: m.content }]
+            }));
+
+            const response = await this.plugin.callGeminiAPI(contents);
 
             // Remove loading and add response
             loadingEl.remove();
@@ -967,7 +1001,7 @@ ${userMessage}`;
         }
         return out;
     }
-    
+
     async processChatPrompt(message) {
         let processed = message;
 
