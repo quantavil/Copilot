@@ -341,6 +341,7 @@ class CopilotChatView extends ItemView {
         this.currentSessionId = Date.now().toString();
         this.promptHistory = [];
         this.promptHistoryIndex = -1;
+        this.canvasFile = null;
     }
 
     getViewType() {
@@ -394,6 +395,7 @@ class CopilotChatView extends ItemView {
             this.currentSessionId = Date.now().toString();
             this.chatContainer.empty();
             this.addWelcomeMessage();
+            this.canvasFile = null;
             new Notice('Started new chat');
         });
 
@@ -532,6 +534,7 @@ class CopilotChatView extends ItemView {
         if (this.messages.length > 0) {
             await this.saveCurrentSession();
         }
+        this.canvasFile = null;
     }
 
     checkForSuggestions() {
@@ -726,6 +729,13 @@ class CopilotChatView extends ItemView {
         const message = this.inputEl.value.trim();
         if (!message) return;
 
+        if (message === '/canvas') {
+            this.createCanvasFile();
+            this.inputEl.value = '';
+            this.inputEl.style.height = 'auto';
+            return;
+        }
+
         // Add to prompt history
         this.promptHistory.push(message);
         this.promptHistoryIndex = this.promptHistory.length;
@@ -789,6 +799,17 @@ class CopilotChatView extends ItemView {
             loadingEl.remove();
             this.addMessage('assistant', `Error: ${error.message}`);
 
+        }
+    }
+
+    async createCanvasFile() {
+        const now = new Date();
+        const fileName = `canvas-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}.md`;
+        try {
+            this.canvasFile = await this.app.vault.create(fileName, '');
+            new Notice(`Canvas file created: ${fileName}`);
+        } catch (error) {
+            new Notice(`Error creating canvas file: ${error.message}`);
         }
     }
 
@@ -905,6 +926,11 @@ ${content}
 
         // Scroll to bottom
         this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
+
+        if (this.canvasFile) {
+            const formattedMessage = `**${type === 'user' ? 'User' : 'Copilot'}**: ${content}\n\n`;
+            this.app.vault.append(this.canvasFile, formattedMessage);
+        }
 
         return messageEl;
     }
