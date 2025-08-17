@@ -668,6 +668,13 @@ class CopilotChatView extends ItemView {
                 this.selectSuggestion(index);
             });
         });
+
+        // Select the first item by default
+        if (this.currentSuggestions.length > 0) {
+            this.selectedSuggestionIndex = 0;
+            const items = this.suggestionsEl.querySelectorAll('.copilot-suggestion-item');
+            if (items[0] && items[0].classList) items[0].classList.add('selected');
+        }
     }
 
     navigateSuggestions(direction) {
