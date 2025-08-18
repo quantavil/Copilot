@@ -1706,7 +1706,7 @@ class CopilotSettingTab extends PluginSettingTab {
                                     for (const cmd of importedCommands) {
                                         if (cmd.name && cmd.prompt && !existingNames.has(cmd.name)) {
                                             this.plugin.settings.commands.push({
-                                                id: `custom-${Date.now()}`,
+                                                id: `custom-${Date.now()}-${addedCount}`,
                                                 name: cmd.name,
                                                 prompt: cmd.prompt,
                                                 enabled: cmd.enabled !== undefined ? cmd.enabled : true,

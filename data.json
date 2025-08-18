@@ -11,28 +11,28 @@
       "directReplace": true
     },
     {
-      "id": "custom-1755489454484",
+      "id": "custom-1755489454485",
       "name": "Reframer",
       "prompt": "You are a Question Reframer. Reframe the given question {} by renaming entities (people, places, objects, color) and adjusting dates to be realistic and consistent, while improving the structure, meaning, and flow unchanged.",
       "enabled": true,
       "directReplace": false
     },
     {
-      "id": "custom-1755489454484",
+      "id": "custom-1755489454486",
       "name": "summarize",
       "prompt": "Create a bullet-point summary of {}. Each bullet point should capture a key point. Return only the bullet-point summary.",
       "enabled": true,
       "directReplace": false
     },
     {
-      "id": "custom-1755489454484",
+      "id": "custom-1755489454487",
       "name": "Table Format",
       "prompt": "Convert the given data  {} to proper markdown table.",
       "enabled": true,
       "directReplace": false
     },
     {
-      "id": "custom-1755489454484",
+      "id": "custom-1755489454488",
       "name": "Glossary",
       "prompt": "Create a glossary of important terms, concepts, and phrases from {}. Format each entry as \"Term: Definition\". Sort entries alphabetically. Return only the glossary.",
       "enabled": true,
@@ -41,7 +41,45 @@
   ],
   "directReplace": false,
   "apiVerified": true,
-  "chatHistory": [],
+  "chatHistory": [
+    {
+      "id": "1755505618395",
+      "timestamp": 1755505678378,
+      "messages": [
+        {
+          "type": "user",
+          "content": "hoi",
+          "timestamp": 1755505623486
+        },
+        {
+          "type": "assistant",
+          "content": "Hoi! Waarmee kan ik je van dienst zijn? 😊",
+          "timestamp": 1755505626147
+        },
+        {
+          "type": "user",
+          "content": "which lang i speak",
+          "timestamp": 1755505635883
+        },
+        {
+          "type": "assistant",
+          "content": "Based on your greeting \"hoi,\" you are speaking **Dutch**.",
+          "timestamp": 1755505636678
+        },
+        {
+          "type": "user",
+          "content": "lulu",
+          "timestamp": 1755505643185
+        },
+        {
+          "type": "assistant",
+          "content": "\"Lulu\" can mean a few different things depending on the context!\n\nAre you referring to:\n\n*   **Lulu (name):** It's a common given name, often a nickname for Louise or Lucia.\n*   **Lulu (clothing brand):** A popular activewear and lifestyle brand.\n*   **Lulu.com:** A self-publishing platform.\n*   **Lulu (slang):** Sometimes used to describe someone or something as wonderful, excellent, or \"the bee's knees.\"\n\nCould you tell me a bit more about what you mean by \"lulu\"?",
+          "timestamp": 1755505644480
+        }
+      ],
+      "title": "hoi"
+    }
+  ],
   "usageData": {
     "2025-08-18": {
       "gemini-2.5-pro": {
@@ -53,8 +91,8 @@
         "tokens": 0
       },
       "gemini-2.5-flash-lite": {
-        "requests": 0,
-        "tokens": 0
+        "requests": 3,
+        "tokens": 289
       }
     }
   }
