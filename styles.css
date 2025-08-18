@@ -148,10 +148,12 @@ button {
 }
 
 .copilot-message.assistant {
-    background: var(--background-secondary-alt);
+    background: transparent;
     color: var(--text-normal);
-    border: 1px solid var(--background-modifier-border);
-    border-bottom-left-radius: 4px;
+    border-left: 3px solid var(--interactive-accent);
+    border-radius: 0;
+    padding: 12px 16px 12px 20px;
+    margin-left: 4px;
 }
 
 .copilot-message-content {
@@ -691,7 +693,6 @@ button {
 }
 
 .copilot-message-content code {
-    background: var(--background-primary);
     padding: 2px 4px;
     border-radius: 3px;
     font-family: var(--font-monospace);
