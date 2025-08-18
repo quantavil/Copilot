@@ -41,7 +41,6 @@ Create powerful, personalized workflows with custom commands:
     - `{}`: The currently selected text.
     - `{activeNote}`: The content of the current note.
     - `{[[Note Title]]}`: The content of a linked note.
-    - `{#tag}`: The content of all notes with a specific tag.
 - **Output:** Choose to either replace the selected text or show the output in a modal.
 
 ## Contributing
