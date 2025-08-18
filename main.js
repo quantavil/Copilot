@@ -1169,6 +1169,9 @@ class CopilotChatView extends ItemView {
             loadingEl.remove();
             this.addMessage('assistant', response);
 
+            // Update usage display after API call
+            this.updateUsageDisplay();
+
             // Auto-save session after each exchange
             await this.saveCurrentSession();
 
