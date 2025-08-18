@@ -1,5 +1,5 @@
 // ===== IMPORTS AND CONSTANTS =====
-const { Plugin, PluginSettingTab, Setting, Modal, Notice, ItemView, WorkspaceLeaf, Menu, Editor, MarkdownView, requestUrl, EditorSuggest, MarkdownRenderer } = require('obsidian');
+const { Plugin, PluginSettingTab, Setting, Modal, Notice, ItemView, WorkspaceLeaf, Menu, Editor, MarkdownView, requestUrl, EditorSuggest, MarkdownRenderer, SuggestModal } = require('obsidian');
 const COPILOT_VIEW_TYPE = 'copilot-chat-view';
 const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 
@@ -92,19 +92,24 @@ class CopilotPlugin extends Plugin {
         await this.saveData(this.settings);
     }
 
+    // Use ISO yyyy-mm-dd keys, safe for string comparison
+    todayKey() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
     async initializeUsageTracking() {
-        const today = new Date().toDateString();
+        const today = this.todayKey();
+
         if (!this.settings.usageData) {
             this.settings.usageData = {};
         }
 
-        // Clean up old data (keep only last 7 days)
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - 7);
-
-        for (const date in this.settings.usageData) {
-            if (new Date(date) < cutoffDate) {
-                delete this.settings.usageData[date];
+        // Clean up old data (keep only last 7 days) using string comparison on ISO keys
+        const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        for (const k of Object.keys(this.settings.usageData)) {
+            // Remove non-ISO keys or dates older than cutoff
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || k < cutoff) {
+                delete this.settings.usageData[k];
             }
         }
 
@@ -127,7 +132,7 @@ class CopilotPlugin extends Plugin {
     }
 
     async trackUsage(model, tokensUsed) {
-        const today = new Date().toDateString();
+        const today = this.todayKey();
 
         if (!this.settings.usageData[today]) {
             await this.initializeUsageTracking();
@@ -147,13 +152,12 @@ class CopilotPlugin extends Plugin {
     }
 
     getUsageForModel(model) {
-        const today = new Date().toDateString();
+        const today = this.todayKey();
         if (!this.settings.usageData || !this.settings.usageData[today] || !this.settings.usageData[today][model]) {
             return { requests: 0, tokens: 0 };
         }
         return this.settings.usageData[today][model];
     }
-
 
     registerCommands() {
         // Command to open chat view
@@ -163,17 +167,11 @@ class CopilotPlugin extends Plugin {
             callback: () => this.activateChatView()
         });
 
-        // Register custom commands as Obsidian commands
-        this.settings.commands.forEach(cmd => {
-            if (cmd.enabled) {
-                this.addCommand({
-                    id: `copilot-cmd-${cmd.id}`,
-                    name: cmd.name,
-                    editorCallback: (editor, view) => {
-                        this.executeCommand(cmd, editor, view);
-                    }
-                });
-            }
+        // Single dynamic command picker reflecting current custom commands
+        this.addCommand({
+            id: 'run-copilot-command',
+            name: 'Run Copilot Command…',
+            callback: () => new CommandPickerModal(this.app, this).open()
         });
     }
 
@@ -217,6 +215,7 @@ class CopilotPlugin extends Plugin {
             });
         });
     }
+
     async executeCommand(command, editor, view) {
         if (!this.settings.apiKey || !this.settings.apiVerified) {
             new Notice('Please configure your Gemini API key in settings');
@@ -273,6 +272,7 @@ class CopilotPlugin extends Plugin {
 
         // Replace {[[Note Title]]} with linked note content
         const linkMatches = processed.match(/\{\[\[(.+?)\]\]\}/g);
+
         if (linkMatches) {
             for (const match of linkMatches) {
                 const noteName = match.slice(3, -3);
@@ -387,7 +387,7 @@ class CopilotPlugin extends Plugin {
     }
 }
 
-// ===== CHAT VIEW CLASS =====
+// ===== MODALS =====
 
 class ConfirmationModal extends Modal {
     constructor(app, onConfirm) {
@@ -416,9 +416,149 @@ class ConfirmationModal extends Modal {
     }
 }
 
-// ===== CHAT VIEW CLASS =====
+class CommandPickerModal extends SuggestModal {
+    constructor(app, plugin) {
+        super(app);
+        this.plugin = plugin;
+        this.setPlaceholder('Type to search Copilot commands…');
+    }
 
-/* ===== CHAT VIEW CLASS ===== */
+    getSuggestions(query) {
+        const q = (query || '').toLowerCase();
+        return this.plugin.settings.commands
+            .filter(cmd => cmd.enabled && cmd.name.toLowerCase().includes(q));
+    }
+
+    renderSuggestion(cmd, el) {
+        el.addClass('copilot-command-picker-item');
+        el.createDiv({ text: cmd.name, cls: 'copilot-command-picker-name' });
+        el.createDiv({
+            text: (cmd.prompt || '').substring(0, 100),
+            cls: 'copilot-command-picker-desc'
+        });
+    }
+
+    onChooseSuggestion(cmd) {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        const editor = view?.editor;
+        if (!editor) {
+            new Notice('Open a markdown note to run a Copilot command');
+            return;
+        }
+        this.plugin.executeCommand(cmd, editor, view);
+    }
+}
+
+// ===== FILE CONTEXT MANAGER (EXTRACTED FROM VIEW) =====
+class FileContextManager {
+    constructor(app, plugin, state) {
+        this.app = app;
+        this.plugin = plugin;
+        // state object should expose: contextFile, canvasFile, canvasOutputOnly
+        this.state = state;
+    }
+
+    async createCanvasFile() {
+        const now = new Date();
+        const fileName = `canvas-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}.md`;
+        try {
+            this.state.canvasFile = await this.app.vault.create(fileName, '');
+            new Notice(`Canvas file created: ${fileName}`);
+        } catch (error) {
+            new Notice(`Error creating canvas file: ${error.message}`);
+        }
+    }
+
+    async setContextFileFromCommand(message) {
+        const title = this.extractWikiLinkTitle(message);
+        if (!title) {
+            new Notice('Usage: /canvas -f [[Note Title]]');
+            return;
+        }
+        const file = this.app.metadataCache.getFirstLinkpathDest(title, '');
+        if (!file) {
+            new Notice(`File not found: ${title}`);
+            return;
+        }
+        this.state.contextFile = file;
+        new Notice(`Working file set: "${file.basename}". All actions now target this file.`);
+    }
+
+    extractWikiLinkTitle(text) {
+        const start = text.indexOf('[[');
+        if (start === -1) return null;
+        const end = text.indexOf(']]', start + 2);
+        if (end === -1) return null;
+        return text.slice(start + 2, end);
+    }
+
+    detectContextAction(message) {
+        const lower = message.trim().toLowerCase();
+        if (lower.startsWith('append ') || lower.startsWith('append:') ||
+            lower.startsWith('add ') || lower.startsWith('add:')) {
+            return 'append';
+        }
+        if (lower.startsWith('ask ') || lower.startsWith('ask:') || lower.endsWith('?')) {
+            return 'ask';
+        }
+        return 'replace';
+    }
+
+    buildContextFilePrompt(currentContent, userMessage, action) {
+        const header = `You are an expert Markdown editor working on a single document.`;
+        const docIntro = `Current document (Markdown):\n---\n${currentContent}\n---`;
+        if (action === 'ask') {
+            return `${header}
+
+Answer the user's question based ONLY on the document.
+Do not propose edits unless explicitly asked.
+Do not include the full document in your answer.
+
+${docIntro}
+
+User question:
+${userMessage}`;
+        } else if (action === 'append') {
+            return `${header}
+
+Create content to APPEND to the end of the document, following the user's instruction.
+Return ONLY the content to append in Markdown (no commentary, no code fences).
+
+${docIntro}
+
+Append instruction:
+${userMessage}`;
+        } else {
+            return `${header}
+
+Transform the entire document according to the user's instruction.
+Return ONLY the full, UPDATED document in Markdown.
+Do NOT include commentary or wrap the output in code fences.
+
+${docIntro}
+
+Rewrite/Transform instruction:
+${userMessage}`;
+        }
+    }
+
+    sanitizeModelOutput(text) {
+        if (!text) return '';
+        let out = text.trim();
+        if (out.startsWith('```')) {
+            const firstNL = out.indexOf('\n');
+            if (firstNL !== -1) {
+                out = out.slice(firstNL + 1);
+                if (out.endsWith('```')) {
+                    out = out.slice(0, -3).trim();
+                }
+            }
+        }
+        return out;
+    }
+}
+
+// ===== CHAT VIEW CLASS =====
 class CopilotChatView extends ItemView {
     constructor(leaf, plugin) {
         super(leaf);
@@ -432,6 +572,9 @@ class CopilotChatView extends ItemView {
         this.canvasFile = null;
         this.canvasOutputOnly = false;
         this.contextFile = null;
+
+        // Extracted manager for file/canvas operations
+        this.fileCtx = new FileContextManager(this.app, this.plugin, this);
     }
 
     getViewType() {
@@ -669,7 +812,6 @@ class CopilotChatView extends ItemView {
         return (tokens / 1000000).toFixed(1) + 'M';
     }
 
-
     async onClose() {
         // Save current session when closing the view
         if (this.messages.length > 0) {
@@ -883,19 +1025,19 @@ class CopilotChatView extends ItemView {
 
         // Handle canvas commands first (no history, no chat message)
         if (message === '/canvas') {
-            this.createCanvasFile();
+            this.fileCtx.createCanvasFile();
             this.inputEl.value = '';
             this.inputEl.style.height = 'auto';
             return;
         } else if (message === '/canvas -o') {
             this.canvasOutputOnly = true;
-            this.createCanvasFile();
+            this.fileCtx.createCanvasFile();
             this.inputEl.value = '';
             this.inputEl.style.height = 'auto';
             return;
         } else if (message.startsWith('/canvas -f')) {
             // Set the working file context for the session
-            await this.setContextFileFromCommand(message);
+            await this.fileCtx.setContextFileFromCommand(message);
             this.inputEl.value = '';
             this.inputEl.style.height = 'auto';
             return;
@@ -929,9 +1071,9 @@ class CopilotChatView extends ItemView {
         try {
             // If a working file is active, all operations should target it
             if (this.contextFile) {
-                const action = this.detectContextAction(message); // 'replace' | 'append' | 'ask'
+                const action = this.fileCtx.detectContextAction(message); // 'replace' | 'append' | 'ask'
                 const fileContent = await this.app.vault.read(this.contextFile);
-                const prompt = this.buildContextFilePrompt(fileContent, message, action);
+                const prompt = this.fileCtx.buildContextFilePrompt(fileContent, message, action);
                 const response = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
 
                 // Remove spinner and add assistant response to chat
@@ -939,7 +1081,7 @@ class CopilotChatView extends ItemView {
                 this.addMessage('assistant', response);
 
                 // Apply to file if needed
-                const clean = this.sanitizeModelOutput(response);
+                const clean = this.fileCtx.sanitizeModelOutput(response);
                 try {
                     if (action === 'replace') {
                         await this.app.vault.modify(this.contextFile, clean);
@@ -1059,113 +1201,6 @@ class CopilotChatView extends ItemView {
         this.abortController?.abort();
         this.updateSendButton(false);
         new Notice('Generation stopped');
-    }
-
-    async createCanvasFile() {
-        const now = new Date();
-        const fileName = `canvas-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}.md`;
-        try {
-            this.canvasFile = await this.app.vault.create(fileName, '');
-            new Notice(`Canvas file created: ${fileName}`);
-        } catch (error) {
-            new Notice(`Error creating canvas file: ${error.message}`);
-        }
-    }
-
-    // NEW: Parse [[Note]] from the command and set contextFile
-    async setContextFileFromCommand(message) {
-        const title = this.extractWikiLinkTitle(message);
-        if (!title) {
-            new Notice('Usage: /canvas -f [[Note Title]]');
-            return;
-        }
-        const file = this.app.metadataCache.getFirstLinkpathDest(title, '');
-        if (!file) {
-            new Notice(`File not found: ${title}`);
-            return;
-        }
-        this.contextFile = file;
-        new Notice(`Working file set: "${file.basename}". All actions now target this file.`);
-    }
-
-    // NEW: simple extractor for [[Title]]
-    extractWikiLinkTitle(text) {
-        const start = text.indexOf('[[');
-        if (start === -1) return null;
-        const end = text.indexOf(']]', start + 2);
-        if (end === -1) return null;
-        return text.slice(start + 2, end);
-    }
-
-    // NEW: decide action based on message
-    detectContextAction(message) {
-        const lower = message.trim().toLowerCase();
-        if (lower.startsWith('append ') || lower.startsWith('append:') ||
-            lower.startsWith('add ') || lower.startsWith('add:')) {
-            return 'append';
-        }
-        if (lower.startsWith('ask ') || lower.startsWith('ask:') || lower.endsWith('?')) {
-            return 'ask';
-        }
-        // default: replace the entire file
-        return 'replace';
-    }
-
-    // NEW: build a strong instruction so the model returns exactly what we need
-    buildContextFilePrompt(currentContent, userMessage, action) {
-        const header = `You are an expert Markdown editor working on a single document.`;
-        const docIntro = `Current document (Markdown):\n---\n${currentContent}\n---`;
-        if (action === 'ask') {
-            return `${header}
-
-Answer the user's question based ONLY on the document.
-Do not propose edits unless explicitly asked.
-Do not include the full document in your answer.
-
-${docIntro}
-
-User question:
-${userMessage}`;
-        } else if (action === 'append') {
-            return `${header}
-
-Create content to APPEND to the end of the document, following the user's instruction.
-Return ONLY the content to append in Markdown (no commentary, no code fences).
-
-${docIntro}
-
-Append instruction:
-${userMessage}`;
-        } else {
-            // replace
-            return `${header}
-
-Transform the entire document according to the user's instruction.
-Return ONLY the full, UPDATED document in Markdown.
-Do NOT include commentary or wrap the output in code fences.
-
-${docIntro}
-
-Rewrite/Transform instruction:
-${userMessage}`;
-        }
-    }
-
-    // NEW: remove surrounding ``` fences if the model returns them
-    sanitizeModelOutput(text) {
-        if (!text) return '';
-        let out = text.trim();
-        if (out.startsWith('```')) {
-            const firstNL = out.indexOf('\n');
-            if (firstNL !== -1) {
-                out = out.slice(firstNL + 1);
-                // remove trailing ```
-                if (out.endsWith('```')) {
-                    out = out.slice(0, -3).trim();
-                }
-            }
-        }
-        return out;
     }
 
     async processChatPrompt(message) {
@@ -1408,7 +1443,6 @@ ${userMessage}`;
         const rect = button.getBoundingClientRect();
         menu.showAtPosition({ x: rect.left, y: rect.bottom });
     }
-
 }
 
 // ===== SLASH COMMAND SUGGESTOR =====
@@ -1739,7 +1773,7 @@ class CopilotSettingTab extends PluginSettingTab {
             });
 
             // Delete button
-            if (command.id !== 'fix-grammar') { // Don't allow deleting default command
+            if (command.id !== 'fix-grammar') { // Don't allow deleting default command (if present)
                 const deleteBtn = actions.createEl('button', {
                     text: 'Delete',
                     cls: 'copilot-command-button'
@@ -1759,6 +1793,7 @@ class CopilotSettingTab extends PluginSettingTab {
         });
     }
 }
+
 // ===== COMMAND EDIT MODAL =====
 class CommandEditModal extends Modal {
     constructor(app, plugin, command, onSave) {
@@ -1800,8 +1835,6 @@ class CommandEditModal extends Modal {
                 text.inputEl.rows = 5;
                 text.inputEl.style.width = '100%';
             });
-
-
 
         // Buttons
         const buttonContainer = contentEl.createDiv('copilot-button-container');
@@ -1848,4 +1881,3 @@ class CommandEditModal extends Modal {
 
 // ===== EXPORT PLUGIN =====
 module.exports = CopilotPlugin;
-
