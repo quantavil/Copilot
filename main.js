@@ -7,6 +7,7 @@ const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-l
 class CopilotPlugin extends Plugin {
     async onload() {
         await this.loadSettings();
+        await this.initializeUsageTracking();
 
         // Register the sidebar view
         this.registerView(
@@ -91,6 +92,69 @@ class CopilotPlugin extends Plugin {
         await this.saveData(this.settings);
     }
 
+    async initializeUsageTracking() {
+        const today = new Date().toDateString();
+        if (!this.settings.usageData) {
+            this.settings.usageData = {};
+        }
+
+        // Clean up old data (keep only last 7 days)
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 7);
+
+        for (const date in this.settings.usageData) {
+            if (new Date(date) < cutoffDate) {
+                delete this.settings.usageData[date];
+            }
+        }
+
+        // Initialize today's data if not exists
+        if (!this.settings.usageData[today]) {
+            this.settings.usageData[today] = {};
+        }
+
+        // Initialize models if not exists
+        GEMINI_MODELS.forEach(model => {
+            if (!this.settings.usageData[today][model]) {
+                this.settings.usageData[today][model] = {
+                    requests: 0,
+                    tokens: 0
+                };
+            }
+        });
+
+        await this.saveSettings();
+    }
+
+    async trackUsage(model, tokensUsed) {
+        const today = new Date().toDateString();
+
+        if (!this.settings.usageData[today]) {
+            await this.initializeUsageTracking();
+        }
+
+        if (!this.settings.usageData[today][model]) {
+            this.settings.usageData[today][model] = {
+                requests: 0,
+                tokens: 0
+            };
+        }
+
+        this.settings.usageData[today][model].requests += 1;
+        this.settings.usageData[today][model].tokens += tokensUsed;
+
+        await this.saveSettings();
+    }
+
+    getUsageForModel(model) {
+        const today = new Date().toDateString();
+        if (!this.settings.usageData || !this.settings.usageData[today] || !this.settings.usageData[today][model]) {
+            return { requests: 0, tokens: 0 };
+        }
+        return this.settings.usageData[today][model];
+    }
+
+
     registerCommands() {
         // Command to open chat view
         this.addCommand({
@@ -169,6 +233,15 @@ class CopilotPlugin extends Plugin {
             const prompt = await this.processPrompt(command.prompt, selection, view);
             const response = await this.callGeminiAPI(prompt);
 
+            // Update usage display in chat view if open
+            const chatViews = this.app.workspace.getLeavesOfType(COPILOT_VIEW_TYPE);
+            if (chatViews.length > 0) {
+                const chatView = chatViews[0].view;
+                if (chatView && chatView.updateUsageDisplay) {
+                    chatView.updateUsageDisplay();
+                }
+            }
+
             // Use command-specific directReplace setting
             if (command.directReplace && selection) {
                 editor.replaceSelection(response);
@@ -237,7 +310,6 @@ class CopilotPlugin extends Plugin {
     async callGeminiAPI(input, abortSignal) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${this.settings.apiKey}`;
 
-        // Accept either a raw string prompt or a full Gemini `contents` array
         const contents = Array.isArray(input)
             ? input
             : [{
@@ -272,7 +344,7 @@ class CopilotPlugin extends Plugin {
         try {
             json = await res.json();
         } catch (_) {
-            // ignore JSON parse errors; will handle below
+            // ignore JSON parse errors
         }
 
         if (res.status === 401 || res.status === 403) {
@@ -289,6 +361,10 @@ class CopilotPlugin extends Plugin {
 
         const parts = json?.candidates?.[0]?.content?.parts || [];
         const text = parts.map(p => p.text || '').join('').trim();
+
+        // Track usage - estimate tokens (rough approximation)
+        const estimatedTokens = Math.ceil((JSON.stringify(requestBody).length + text.length) / 4);
+        await this.trackUsage(this.settings.selectedModel, estimatedTokens);
 
         if (text) return text;
 
@@ -474,10 +550,22 @@ class CopilotChatView extends ItemView {
                 this.plugin.settings.selectedModel = model;
                 await this.plugin.saveSettings();
 
+                // Update usage display for new model
+                this.updateUsageDisplay();
+
                 // Show subtle feedback
                 new Notice(`Switched to ${model}`, 2000);
             });
         });
+
+        // Add usage display
+        this.usageContainer = bottomSection.createDiv('copilot-usage-container');
+        this.updateUsageDisplay();
+
+        // Update usage display every minute
+        this.registerInterval(window.setInterval(() => {
+            this.updateUsageDisplay();
+        }, 60000));
 
         // Event listeners
         sendButton.addEventListener('click', () => {
@@ -559,6 +647,28 @@ class CopilotChatView extends ItemView {
             this.addWelcomeMessage();
         }
     }
+
+    updateUsageDisplay() {
+        if (!this.usageContainer) return;
+
+        const usage = this.plugin.getUsageForModel(this.plugin.settings.selectedModel);
+        this.usageContainer.empty();
+
+        const rpdEl = this.usageContainer.createDiv('copilot-usage-item');
+        rpdEl.createSpan({ text: 'RPD: ', cls: 'copilot-usage-label' });
+        rpdEl.createSpan({ text: usage.requests.toString(), cls: 'copilot-usage-value' });
+
+        const tokenEl = this.usageContainer.createDiv('copilot-usage-item');
+        tokenEl.createSpan({ text: 'Tokens: ', cls: 'copilot-usage-label' });
+        tokenEl.createSpan({ text: this.formatTokenCount(usage.tokens), cls: 'copilot-usage-value' });
+    }
+
+    formatTokenCount(tokens) {
+        if (tokens < 1000) return tokens.toString();
+        if (tokens < 1000000) return (tokens / 1000).toFixed(1) + 'K';
+        return (tokens / 1000000).toFixed(1) + 'M';
+    }
+
 
     async onClose() {
         // Save current session when closing the view
@@ -844,6 +954,9 @@ class CopilotChatView extends ItemView {
                     new Notice(`Failed to update file: ${e.message}`);
                 }
 
+                // Update usage display after API call
+                this.updateUsageDisplay();
+
                 // Auto-save session after each exchange
                 await this.saveCurrentSession();
                 return;
@@ -879,6 +992,8 @@ class CopilotChatView extends ItemView {
 
                     loadingEl.remove();
                     this.addMessage('assistant', response);
+                    // Update usage display after API call
+                    this.updateUsageDisplay();
                     await this.saveCurrentSession();
                     return;
                 }
