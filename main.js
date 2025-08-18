@@ -1504,7 +1504,7 @@ class CopilotSettingTab extends PluginSettingTab {
 
         const commandsContainer = containerEl.createDiv('copilot-commands-list');
 
-        // Add new command button
+        // Add new command button & import/export
         new Setting(containerEl)
             .addButton(button => {
                 button
@@ -1513,6 +1513,71 @@ class CopilotSettingTab extends PluginSettingTab {
                         new CommandEditModal(this.app, this.plugin, null, () => {
                             this.display();
                         }).open();
+                    });
+            })
+            .addButton(button => {
+                button
+                    .setButtonText('Export Commands')
+                    .onClick(() => {
+                        const commands = this.plugin.settings.commands;
+                        const json = JSON.stringify(commands, null, 2);
+                        const blob = new Blob([json], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'copilot-commands.json';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        new Notice('Commands exported successfully');
+                    });
+            })
+            .addButton(button => {
+                button
+                    .setButtonText('Import Commands')
+                    .onClick(() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = '.json';
+                        input.onchange = async (e) => {
+                            const file = e.target.files[0];
+                            if (!file) return;
+
+                            const reader = new FileReader();
+                            reader.onload = async (e) => {
+                                try {
+                                    const importedCommands = JSON.parse(e.target.result);
+                                    if (!Array.isArray(importedCommands)) {
+                                        new Notice('Invalid file format');
+                                        return;
+                                    }
+
+                                    // Simple merge: append new commands, ignore duplicates by name
+                                    const existingNames = new Set(this.plugin.settings.commands.map(c => c.name));
+                                    let addedCount = 0;
+                                    for (const cmd of importedCommands) {
+                                        if (cmd.name && cmd.prompt && !existingNames.has(cmd.name)) {
+                                            this.plugin.settings.commands.push({
+                                                id: `custom-${Date.now()}`,
+                                                name: cmd.name,
+                                                prompt: cmd.prompt,
+                                                enabled: cmd.enabled !== undefined ? cmd.enabled : true,
+                                                directReplace: cmd.directReplace !== undefined ? cmd.directReplace : false
+                                            });
+                                            addedCount++;
+                                        }
+                                    }
+
+                                    await this.plugin.saveSettings();
+                                    this.display();
+                                    new Notice(`${addedCount} commands imported successfully`);
+
+                                } catch (error) {
+                                    new Notice('Error reading or parsing file');
+                                }
+                            };
+                            reader.readAsText(file);
+                        };
+                        input.click();
                     });
             });
 

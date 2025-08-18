@@ -25,14 +25,14 @@
       "directReplace": false
     },
     {
-      "id": "custom-1755414296751",
+      "id": "custom-1755488648095",
       "name": "Table Format",
       "prompt": "Convert the given data  {} to proper markdown table.",
       "enabled": true,
       "directReplace": false
     },
     {
-      "id": "custom-1755414330285",
+      "id": "custom-1755488648095",
       "name": "Glossary",
       "prompt": "Create a glossary of important terms, concepts, and phrases from {}. Format each entry as \"Term: Definition\". Sort entries alphabetically. Return only the glossary.",
       "enabled": true,
@@ -41,129 +41,7 @@
   ],
   "directReplace": false,
   "apiVerified": true,
-  "chatHistory": [
-    {
-      "id": "1755448351555",
-      "timestamp": 1755448503274,
-      "messages": [
-        {
-          "type": "user",
-          "content": "append new problem",
-          "timestamp": 1755448445842
-        },
-        {
-          "type": "assistant",
-          "content": "3. What is $10 \\times 4$?",
-          "timestamp": 1755448448323
-        },
-        {
-          "type": "user",
-          "content": "ask who is the pm",
-          "timestamp": 1755448470618
-        },
-        {
-          "type": "assistant",
-          "content": "I cannot answer this question. The document does not contain information about who the Prime Minister is.",
-          "timestamp": 1755448471430
-        },
-        {
-          "type": "user",
-          "content": "ask what solution of 1 que",
-          "timestamp": 1755448486594
-        },
-        {
-          "type": "assistant",
-          "content": "The document does not contain the solution to question 1.",
-          "timestamp": 1755448487600
-        },
-        {
-          "type": "user",
-          "content": "then solve it",
-          "timestamp": 1755448502159
-        },
-        {
-          "type": "assistant",
-          "content": "# Question Paper\n\n---\n\n**Instructions:** Please answer the following questions.\n\n---\n\n1.  What is $2 + 3$?\n    $2 + 3 = 5$\n\n2.  What is $5 + 7$?\n    $5 + 7 = 12$\n\n---\n\n\n3. What is $10 \\times 4$?\n    $10 \\times 4 = 40$\n\n---",
-          "timestamp": 1755448503136
-        }
-      ],
-      "title": "append new problem"
-    },
-    {
-      "id": "1755446227199",
-      "timestamp": 1755446311725,
-      "messages": [
-        {
-          "type": "user",
-          "content": "hi hlo kite",
-          "timestamp": 1755446253619
-        },
-        {
-          "type": "assistant",
-          "content": "Hello there!  kitesurfing is a fantastic sport! I'm happy to help you with any questions you might have about it.\n\nWhat would you like to know? Are you interested in:\n\n*   **Getting started with kitesurfing?** (Lessons, gear, where to learn)\n*   **Specific kitesurfing techniques?** (Jumping, tricks, riding)\n*   **Kitesurfing gear?** (Kites, boards, harnesses)\n*   **The best places to kitesurf?**\n*   **Safety in kitesurfing?**\n*   **Or something else entirely?**\n\nLet me know what's on your mind! 😊",
-          "timestamp": 1755446256359
-        }
-      ],
-      "title": "hi hlo kite"
-    },
-    {
-      "id": "1755425063960",
-      "timestamp": 1755425136742,
-      "messages": [
-        {
-          "type": "user",
-          "content": "Write more questions related to it",
-          "timestamp": 1755425116001
-        },
-        {
-          "type": "assistant",
-          "content": "what is sin, cos\nwhat is tan\nwhat is the unit circle\nwhat is the relationship between sin, cos, and tan\nwhat are the graphs of sin, cos, and tan\nwhat is the domain and range of sin, cos, and tan\nwhat are the common trigonometric identities\nwhat is the Pythagorean identity\nwhat is the double angle formula for sin and cos\nwhat is the sum and difference formula for sin and cos",
-          "timestamp": 1755425119391
-        },
-        {
-          "type": "user",
-          "content": "Make it beautiful",
-          "timestamp": 1755425132670
-        },
-        {
-          "type": "assistant",
-          "content": "# Trigonometry Fundamentals\n\n## Core Concepts\n\n*   **What is Sine (sin)?** The sine of an angle in a right-angled triangle is the ratio of the length of the side opposite the angle to the length of the hypotenuse. In the context of the unit circle, it represents the y-coordinate of a point on the circle.\n\n*   **What is Cosine (cos)?** The cosine of an angle in a right-angled triangle is the ratio of the length of the adjacent side to the angle to the length of the hypotenuse. On the unit circle, it represents the x-coordinate of a point on the circle.\n\n*   **What is Tangent (tan)?** The tangent of an angle is the ratio of the length of the opposite side to the length of the adjacent side. On the unit circle, it is the ratio of the sine to the cosine ($\\tan \\theta = \\frac{\\sin \\theta}{\\cos \\theta}$).\n\n*   **What is the Unit Circle?** A circle with a radius of 1 centered at the origin (0,0) on a Cartesian coordinate plane. It's a fundamental tool for visualizing trigonometric functions and their properties, as the coordinates of points on the circle directly correspond to the cosine and sine of the angle formed with the positive x-axis.\n\n*   **Relationship between sin, cos, and tan:**\n    *   $\\tan \\theta = \\frac{\\sin \\theta}{\\cos \\theta}$ (This is a fundamental identity.)\n    *   The values of $\\sin \\theta$ and $\\cos \\theta$ on the unit circle are the y- and x-coordinates, respectively.\n\n## Visualizing Trigonometry\n\n*   **Graphs of sin, cos, and tan:**\n    *   **Sine Graph:** A continuous, smooth, wave-like curve that oscillates between -1 and 1. It starts at 0, goes up to 1 at $\\frac{\\pi}{2}$, back to 0 at $\\pi$, down to -1 at $\\frac{3\\pi}{2}$, and returns to 0 at $2\\pi$.\n    *   **Cosine Graph:** Also a continuous, smooth, wave-like curve oscillating between -1 and 1. It starts at 1, goes down to 0 at $\\frac{\\pi}{2}$, down to -1 at $\\pi$, back to 0 at $\\frac{3\\pi}{2}$, and returns to 1 at $2\\pi$. The cosine graph is essentially the sine graph shifted $\\frac{\\pi}{2}$ units to the left.\n    *   **Tangent Graph:** Has a repeating pattern of curves that pass through the origin and have vertical asymptotes at odd multiples of $\\frac{\\pi}{2}$ (e.g., $\\pm \\frac{\\pi}{2}, \\pm \\frac{3\\pi}{2}$). The range is all real numbers.\n\n*   **Domain and Range of sin, cos, and tan:**\n    *   **Sine (sin):**\n        *   Domain: All real numbers ($\\mathbb{R}$)\n        *   Range: $[-1, 1]$\n    *   **Cosine (cos):**\n        *   Domain: All real numbers ($\\mathbb{R}$)\n        *   Range: $[-1, 1]$\n    *   **Tangent (tan):**\n        *   Domain: All real numbers except odd multiples of $\\frac{\\pi}{2}$ ($x \\neq \\frac{\\pi}{2} + n\\pi$, where $n$ is an integer)\n        *   Range: All real numbers ($\\mathbb{R}$)\n\n## Key Trigonometric Identities\n\n*   **Common Trigonometric Identities:** These are equations that are true for all values of the variables for which the expressions are defined. They are essential for simplifying trigonometric expressions and solving trigonometric equations.\n\n*   **The Pythagorean Identity:** This is perhaps the most fundamental identity, derived from the Pythagorean theorem.\n    *   $\\sin^2 \\theta + \\cos^2 \\theta = 1$\n\n*   **Double Angle Formulas:** These express trigonometric functions of twice an angle in terms of trigonometric functions of the angle itself.\n    *   **For Sine:** $\\sin(2\\theta) = 2 \\sin \\theta \\cos \\theta$\n    *   **For Cosine:**\n        *   $\\cos(2\\theta) = \\cos^2 \\theta - \\sin^2 \\theta$\n        *   $\\cos(2\\theta) = 2 \\cos^2 \\theta - 1$\n        *   $\\cos(2\\theta) = 1 - 2 \\sin^2 \\theta$ (These are all equivalent forms.)\n\n*   **Sum and Difference Formulas:** These allow us to find the sine and cosine of the sum or difference of two angles.\n    *   **For Sine:**\n        *   $\\sin(\\alpha + \\beta) = \\sin \\alpha \\cos \\beta + \\cos \\alpha \\sin \\beta$\n        *   $\\sin(\\alpha - \\beta) = \\sin \\alpha \\cos \\beta - \\cos \\alpha \\sin \\beta$\n    *   **For Cosine:**\n        *   $\\cos(\\alpha + \\beta) = \\cos \\alpha \\cos \\beta - \\sin \\alpha \\sin \\beta$\n        *   $\\cos(\\alpha - \\beta) = \\cos \\alpha \\cos \\beta + \\sin \\alpha \\sin \\beta$",
-          "timestamp": 1755425136499
-        }
-      ],
-      "title": "Write more questions related to it"
-    },
-    {
-      "id": "1755422541498",
-      "timestamp": 1755422566547,
-      "messages": [
-        {
-          "type": "user",
-          "content": "who r u",
-          "timestamp": 1755422554713
-        },
-        {
-          "type": "assistant",
-          "content": "I am a large language model, trained by Google.",
-          "timestamp": 1755422556932
-        },
-        {
-          "type": "user",
-          "content": "i dont belive u",
-          "timestamp": 1755422565177
-        },
-        {
-          "type": "assistant",
-          "content": "I understand that you might be skeptical. It's good to be critical and question things!\n\nTo help me understand why you don't believe me, could you tell me what it is you're referring to? What did I say or do that made you doubt me?\n\nKnowing what specifically you don't believe will help me either:\n\n*   **Clarify my information:** Perhaps I wasn't clear or I made a mistake.\n*   **Explain my capabilities:** Maybe you have a misconception about what I am.\n*   **Acknowledge limitations:** I am an AI and I don't have personal beliefs or experiences.\n\nI'm here to provide information and assistance, and I want to be as helpful and accurate as possible. Please let me know what's on your mind.",
-          "timestamp": 1755422566504
-        }
-      ],
-      "title": "who r u"
-    }
-  ],
-  "temperature": 0.1,
-  "maxTokens": 6000,
-  "safetySettings": "HARM_BLOCK_THRESHOLD_UNSPECIFIED",
+  "chatHistory": [],
   "userId": "a1d381f1-cd58-456b-a96c-1cace8a1a92e",
   "isPlusUser": false,
   "plusLicenseKey": "",
@@ -185,6 +63,8 @@
   "defaultChainType": "llm_chain",
   "defaultModelKey": "gemini-2.5-flash|google",
   "embeddingModelKey": "text-embedding-3-small|openai",
+  "temperature": 0.1,
+  "maxTokens": 6000,
   "contextTurns": 15,
   "userSystemPrompt": "",
   "openAIProxyBaseUrl": "",
