@@ -4,25 +4,18 @@
   "systemPrompt": "",
   "commands": [
     {
-      "id": "custom-1755489454484",
-      "name": "Fix Grammar",
-      "prompt": "Fix the grammar and spelling of {}. Preserve all formatting, line breaks, and special characters. Do not add or remove any content. Return only the corrected text.",
-      "enabled": true,
-      "directReplace": true
-    },
-    {
       "id": "custom-1755489454485",
       "name": "Reframer",
       "prompt": "You are a Question Reframer. Reframe the given question {} by renaming entities (people, places, objects, color) and adjusting dates to be realistic and consistent, while improving the structure, meaning, and flow unchanged.",
       "enabled": true,
-      "directReplace": false
+      "directReplace": true
     },
     {
       "id": "custom-1755489454486",
       "name": "summarize",
       "prompt": "Create a bullet-point summary of {}. Each bullet point should capture a key point. Return only the bullet-point summary.",
       "enabled": true,
-      "directReplace": false
+      "directReplace": true
     },
     {
       "id": "custom-1755489454487",
@@ -35,6 +28,13 @@
       "id": "custom-1755489454488",
       "name": "Glossary",
       "prompt": "Create a glossary of important terms, concepts, and phrases from {}. Format each entry as \"Term: Definition\". Sort entries alphabetically. Return only the glossary.",
+      "enabled": true,
+      "directReplace": false
+    },
+    {
+      "id": "custom-1755506363275",
+      "name": "Fix Grammar",
+      "prompt": "Fix the grammar and spelling of {}. Preserve all formatting, line breaks, and special characters. Do not add or remove any content. Return only the corrected text.",
       "enabled": true,
       "directReplace": false
     }
