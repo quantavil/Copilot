@@ -43,6 +43,23 @@
   "apiVerified": true,
   "chatHistory": [
     {
+      "id": "1755518413474",
+      "timestamp": 1755518420832,
+      "messages": [
+        {
+          "type": "user",
+          "content": "hola",
+          "timestamp": 1755518417625
+        },
+        {
+          "type": "assistant",
+          "content": "¡Hola! ¿En qué puedo ayudarte hoy?",
+          "timestamp": 1755518420803
+        }
+      ],
+      "title": "hola"
+    },
+    {
       "id": "1755518149673",
       "timestamp": 1755518175405,
       "messages": [
@@ -71,8 +88,8 @@
         "tokens": 0
       },
       "gemini-2.5-flash-lite": {
-        "requests": 29,
-        "tokens": 12231
+        "requests": 30,
+        "tokens": 12254
       }
     }
   }

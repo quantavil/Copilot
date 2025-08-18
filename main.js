@@ -173,6 +173,19 @@ class CopilotPlugin extends Plugin {
             name: 'Run Copilot Command…',
             callback: () => new CommandPickerModal(this.app, this).open()
         });
+
+        // Register all custom commands
+        this.settings.commands.forEach(command => {
+            if (command.enabled) {
+                this.addCommand({
+                    id: `copilot-custom-${command.id}`,
+                    name: `Copilot: ${command.name}`,
+                    editorCallback: (editor, view) => {
+                        this.executeCommand(command, editor, view);
+                    }
+                });
+            }
+        });
     }
 
     async activateChatView() {
