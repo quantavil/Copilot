@@ -408,6 +408,8 @@ class CopilotChatView extends ItemView {
     constructor(leaf, plugin) {
         super(leaf);
         this.plugin = plugin;
+
+        // Chat state
         this.messages = [];
         this.currentSuggestions = [];
         this.selectedSuggestionIndex = -1;
@@ -416,8 +418,11 @@ class CopilotChatView extends ItemView {
         this.promptHistoryIndex = -1;
 
         // /paper logging
-        this.paperFile = null;
-        this.paperAiOnly = false;
+        this.paperFile = null;      // file for logging conversation
+        this.paperAiOnly = false;   // if true → log only AI replies
+
+        // /paper doc (working markdown document for intelligent edit/chat)
+        this.paperDocFile = null;   // target .md file to ask/append/replace
 
         this.isLoading = false;
     }
@@ -466,9 +471,10 @@ class CopilotChatView extends ItemView {
             this.currentSessionId = Date.now().toString();
             this.chatContainer.empty();
             this.addWelcomeMessage();
-            // Reset paper logging for new chat
+            // Reset paper state
             this.paperFile = null;
             this.paperAiOnly = false;
+            this.paperDocFile = null;
             new Notice('Started new chat');
         });
 
@@ -480,18 +486,13 @@ class CopilotChatView extends ItemView {
 
         // Input with suggestions
         const inputWrapper = bottomSection.createDiv('copilot-input-wrapper');
-
         this.suggestionsEl = inputWrapper.createDiv('copilot-suggestions');
         this.suggestionsEl.style.display = 'none';
 
         const inputContainer = inputWrapper.createDiv('copilot-input-container');
-
         this.inputEl = inputContainer.createEl('textarea', {
             cls: 'copilot-input',
-            attr: {
-                placeholder: '/ for commands',
-                rows: '1'
-            }
+            attr: { placeholder: '/ for commands', rows: '1' }
         });
 
         const sendButton = inputContainer.createEl('button', {
@@ -507,13 +508,10 @@ class CopilotChatView extends ItemView {
                 cls: 'copilot-model-pill',
                 text: model.split('-').pop()
             });
-
-            if (model === this.plugin.settings.selectedModel) {
-                modelPill.addClass('active');
-            }
+            if (model === this.plugin.settings.selectedModel) modelPill.addClass('active');
 
             modelPill.addEventListener('click', async () => {
-                modelContainer.querySelectorAll('.copilot-model-pill').forEach(pill => pill.removeClass('active'));
+                modelContainer.querySelectorAll('.copilot-model-pill').forEach(p => p.removeClass('active'));
                 modelPill.addClass('active');
                 this.plugin.settings.selectedModel = model;
                 await this.plugin.saveSettings();
@@ -529,11 +527,8 @@ class CopilotChatView extends ItemView {
 
         // Listeners
         sendButton.addEventListener('click', () => {
-            if (this.isLoading) {
-                this.stopGeneration();
-            } else {
-                this.sendMessage();
-            }
+            if (this.isLoading) this.stopGeneration();
+            else this.sendMessage();
         });
 
         this.inputEl.addEventListener('keydown', (e) => {
@@ -598,14 +593,11 @@ class CopilotChatView extends ItemView {
         });
 
         // Welcome
-        if (this.messages.length === 0) {
-            this.addWelcomeMessage();
-        }
+        if (this.messages.length === 0) this.addWelcomeMessage();
     }
 
     updateUsageDisplay() {
         if (!this.usageContainer) return;
-
         const usage = this.plugin.getUsageForModel(this.plugin.settings.selectedModel);
         this.usageContainer.empty();
 
@@ -620,16 +612,15 @@ class CopilotChatView extends ItemView {
 
     formatTokenCount(tokens) {
         if (tokens < 1000) return tokens.toString();
-        if (tokens < 1000000) return (tokens / 1000).toFixed(1) + 'K';
-        return (tokens / 1000000).toFixed(1) + 'M';
+        if (tokens < 1_000_000) return (tokens / 1000).toFixed(1) + 'K';
+        return (tokens / 1_000_000).toFixed(1) + 'M';
     }
 
     async onClose() {
-        if (this.messages.length > 0) {
-            await this.saveCurrentSession();
-        }
+        if (this.messages.length > 0) await this.saveCurrentSession();
         this.paperFile = null;
         this.paperAiOnly = false;
+        this.paperDocFile = null;
     }
 
     checkForSuggestions() {
@@ -637,7 +628,15 @@ class CopilotChatView extends ItemView {
         const cursorPos = this.inputEl.selectionStart;
         const textBeforeCursor = value.substring(0, cursorPos);
 
-        // Only slash commands
+        // 1) Detect "/paper doc <partial...>" and show file suggestions
+        const paperDocMatch = textBeforeCursor.match(/\/paper\s+doc\s*([^\n]*)$/i);
+        if (paperDocMatch) {
+            const partial = paperDocMatch[1] || '';
+            this.showPaperDocSuggestions(partial);
+            return;
+        }
+
+        // 2) Default slash-command suggestions (e.g., "/summarize")
         const slashMatch = textBeforeCursor.match(/\/(\w*)$/);
         if (slashMatch) {
             this.showCommandSuggestions(slashMatch[1]);
@@ -648,19 +647,20 @@ class CopilotChatView extends ItemView {
     }
 
     showCommandSuggestions(query) {
+        const q = (query || '').toLowerCase();
         const commands = this.plugin.settings.commands
-            .filter(cmd => cmd.enabled && cmd.name.toLowerCase().includes((query || '').toLowerCase()));
+            .filter(cmd => cmd.enabled && cmd.name.toLowerCase().includes(q));
 
         const allSuggestions = [
             ...commands.map(cmd => ({ type: 'command', value: cmd.name, data: cmd }))
         ];
 
         // Add /paper helper
-        if ('paper'.includes((query || '').toLowerCase())) {
+        if ('paper'.includes(q)) {
             allSuggestions.unshift({
                 type: 'command',
                 value: 'paper',
-                data: { name: 'paper', prompt: 'Start/Configure paper logging' }
+                data: { name: 'paper', prompt: 'Start/Configure paper logging and doc operations' }
             });
         }
 
@@ -673,6 +673,35 @@ class CopilotChatView extends ItemView {
         this.displaySuggestions();
     }
 
+    showPaperDocSuggestions(partial) {
+        // Clean partial to ignore accidental leading/trailing symbols
+        const clean = (partial || '').trim().replace(/^[<>"']+|[<>"']+$/g, '');
+        const files = this.app.vault.getMarkdownFiles();
+
+        let matches = files;
+        if (clean) {
+            const q = clean.toLowerCase();
+            matches = files.filter(f =>
+                f.basename.toLowerCase().includes(q) ||
+                f.path.toLowerCase().includes(q)
+            );
+        }
+
+        matches = matches.slice(0, 20); // limit results
+
+        if (matches.length === 0) {
+            this.hideSuggestions();
+            return;
+        }
+
+        this.currentSuggestions = matches.map(file => ({
+            type: 'paper-doc',
+            value: file.basename,
+            data: file
+        }));
+
+        this.displaySuggestions();
+    }
     displaySuggestions() {
         this.suggestionsEl.empty();
         this.suggestionsEl.style.display = 'block';
@@ -680,13 +709,19 @@ class CopilotChatView extends ItemView {
 
         this.currentSuggestions.forEach((suggestion, index) => {
             const item = this.suggestionsEl.createDiv('copilot-suggestion-item');
+
             if (suggestion.type === 'command') {
                 item.createSpan({ text: '/', cls: 'copilot-suggestion-prefix' });
                 item.createSpan({ text: suggestion.value });
+            } else if (suggestion.type === 'paper-doc') {
+                item.createSpan({ text: '📄 ', cls: 'copilot-suggestion-prefix' });
+                item.createSpan({ text: suggestion.value });
             }
+
             item.addEventListener('click', () => this.selectSuggestion(index));
         });
 
+        // Select first by default
         if (this.currentSuggestions.length > 0) {
             this.selectedSuggestionIndex = 0;
             const items = this.suggestionsEl.querySelectorAll('.copilot-suggestion-item');
@@ -696,7 +731,6 @@ class CopilotChatView extends ItemView {
 
     navigateSuggestions(direction) {
         const items = this.suggestionsEl.querySelectorAll('.copilot-suggestion-item');
-
         if (this.selectedSuggestionIndex >= 0) {
             const prev = items[this.selectedSuggestionIndex];
             if (prev && prev.classList) prev.classList.remove('selected');
@@ -704,11 +738,8 @@ class CopilotChatView extends ItemView {
 
         this.selectedSuggestionIndex += direction;
 
-        if (this.selectedSuggestionIndex < 0) {
-            this.selectedSuggestionIndex = items.length - 1;
-        } else if (this.selectedSuggestionIndex >= items.length) {
-            this.selectedSuggestionIndex = 0;
-        }
+        if (this.selectedSuggestionIndex < 0) this.selectedSuggestionIndex = items.length - 1;
+        else if (this.selectedSuggestionIndex >= items.length) this.selectedSuggestionIndex = 0;
 
         const curr = items[this.selectedSuggestionIndex];
         if (curr && curr.classList) curr.classList.add('selected');
@@ -721,19 +752,41 @@ class CopilotChatView extends ItemView {
         const textBeforeCursor = value.substring(0, cursorPos);
         const textAfterCursor = value.substring(cursorPos);
 
-        let newText = '';
-        let replaceLength = 0;
-
         if (suggestion.type === 'command') {
             const match = textBeforeCursor.match(/\/(\w*)$/);
-            replaceLength = match ? match[0].length : 0;
-            newText = '/' + suggestion.value + ' ';
+            const replaceLength = match ? match[0].length : 0;
+            const newText = '/' + suggestion.value + ' ';
+            const newValue = textBeforeCursor.substring(0, cursorPos - replaceLength) + newText + textAfterCursor;
+            this.inputEl.value = newValue;
+            this.inputEl.selectionStart = this.inputEl.selectionEnd = cursorPos - replaceLength + newText.length;
+            this.hideSuggestions();
+            this.inputEl.focus();
+            return;
         }
 
-        const newValue = textBeforeCursor.substring(0, cursorPos - replaceLength) + newText + textAfterCursor;
-        this.inputEl.value = newValue;
-        this.inputEl.selectionStart = this.inputEl.selectionEnd = cursorPos - replaceLength + newText.length;
+        if (suggestion.type === 'paper-doc') {
+            // Replace just the <partial> part after "/paper doc "
+            const m = textBeforeCursor.match(/\/paper\s+doc\s*[^\n]*$/i);
+            if (m) {
+                const seg = m[0]; // substring from "/paper doc ..." to cursor
+                const leadMatch = seg.match(/\/paper\s+doc\s*/i);
+                const lead = leadMatch ? leadMatch[0] : '/paper doc ';
+                const replaceStart = cursorPos - seg.length + lead.length;
 
+                const inserted = `"${suggestion.value}"`; // quote to keep spaces safe
+                const newValue = value.slice(0, replaceStart) + inserted + textAfterCursor;
+
+                this.inputEl.value = newValue;
+                const newCursor = replaceStart + inserted.length;
+                this.inputEl.selectionStart = this.inputEl.selectionEnd = newCursor;
+
+                this.hideSuggestions();
+                this.inputEl.focus();
+                return;
+            }
+        }
+
+        // Fallback: hide suggestions
         this.hideSuggestions();
         this.inputEl.focus();
     }
@@ -756,14 +809,69 @@ class CopilotChatView extends ItemView {
         }
     }
 
+    async createNamedMarkdownFile(name) {
+        let fileName = name.trim();
+        if (!fileName.toLowerCase().endsWith('.md')) fileName += '.md';
+
+        const files = this.app.vault.getMarkdownFiles();
+        const exists = (n) => files.some(f =>
+            f.path.toLowerCase() === n.toLowerCase() ||
+            f.basename.toLowerCase() === n.replace(/\.md$/i, '').toLowerCase()
+        );
+
+        let candidate = fileName;
+        let i = 2;
+        while (exists(candidate)) {
+            const base = fileName.replace(/\.md$/i, '');
+            candidate = `${base} ${i}.md`;
+            i++;
+        }
+
+        try {
+            const created = await this.app.vault.create(candidate, '');
+            return created;
+        } catch (err) {
+            new Notice(`Error creating "${candidate}": ${err.message}`);
+            return null;
+        }
+    }
+
+    findMarkdownFileByQuery(query) {
+        // Sanitize: remove leading/trailing < > " ' and extra spaces
+        const cleaned = (query || '')
+            .toString()
+            .trim()
+            .replace(/^[<>"']+|[<>"']+$/g, '')
+            .toLowerCase();
+
+        const tokens = cleaned.split(/\s+/).filter(Boolean);
+        const files = this.app.vault.getMarkdownFiles();
+
+        // Prefer exact basename match
+        let exact = files.find(f => f.basename.toLowerCase() === cleaned);
+        if (exact) return exact;
+
+        // Otherwise, all tokens must appear in either basename or full path
+        let matches = files.filter(f => {
+            const base = f.basename.toLowerCase();
+            const p = f.path.toLowerCase();
+            return tokens.every(t => base.includes(t) || p.includes(t));
+        });
+
+        return matches[0] || null;
+    }
+
     async sendMessage() {
         const message = this.inputEl.value.trim();
         if (!message) return;
 
-        // Handle /paper configuration (no chat message for this)
+        // /paper command handler (logging + doc ops setup)
         if (message.startsWith('/paper')) {
-            const args = message.split(/\s+/).slice(1).map(a => a.toLowerCase());
-            const sub = args[0] || '';
+            const raw = message.slice(6).trim(); // cut "/paper"
+            const [subcmd, ...restTokens] = raw.length ? raw.split(/\s+/) : [''];
+            const sub = (subcmd || '').toLowerCase();
+            const restRaw = restTokens.join(' ').trim();
+            const stripQuotes = (s) => s?.replace(/^"(.*)"$/, '$1').trim();
 
             if (sub === 'off') {
                 this.paperFile = null;
@@ -772,8 +880,8 @@ class CopilotChatView extends ItemView {
             } else if (sub === 'new') {
                 await this.createPaperFile();
                 if (!this.paperFile) return;
-                new Notice('Paper logging enabled (user + AI)');
                 this.paperAiOnly = false;
+                new Notice('Paper logging enabled (user + AI)');
             } else if (sub === 'ai') {
                 if (!this.paperFile) await this.createPaperFile();
                 this.paperAiOnly = true;
@@ -782,15 +890,45 @@ class CopilotChatView extends ItemView {
                 if (!this.paperFile) await this.createPaperFile();
                 this.paperAiOnly = false;
                 new Notice('Paper logging: user + AI');
+            } else if (sub === 'doc') {
+                // /paper doc <name>  OR  /paper doc off
+                const arg = restRaw.toLowerCase();
+                if (!restRaw || arg === 'off') {
+                    this.paperDocFile = null;
+                    new Notice('Cleared working document');
+                } else {
+                    const name = stripQuotes(restRaw);
+                    const file = this.findMarkdownFileByQuery(name);
+                    if (file) {
+                        this.paperDocFile = file;
+                        new Notice(`Working doc set: "${file.basename}.md"`);
+                    } else {
+                        new Notice(`No markdown file found matching: ${name}`);
+                    }
+                }
+            } else if (sub === 'create') {
+                // /paper create "name"
+                const name = stripQuotes(restRaw);
+                if (!name) {
+                    new Notice('Usage: /paper create "Note name"');
+                } else {
+                    const file = await this.createNamedMarkdownFile(name);
+                    if (file) {
+                        this.paperDocFile = file;
+                        new Notice(`Created and set working doc: "${file.basename}.md"`);
+                    }
+                }
             } else {
-                // Default /paper: enable if off, or show status
+                // Default: enable logging if off, or show status
                 if (!this.paperFile) {
                     await this.createPaperFile();
                     if (!this.paperFile) return;
                     this.paperAiOnly = false;
                     new Notice('Paper logging enabled (user + AI)');
                 } else {
-                    new Notice(`Paper active → Mode: ${this.paperAiOnly ? 'AI-only' : 'user + AI'} | Try "/paper ai", "/paper both", "/paper new", "/paper off"`);
+                    new Notice(`Paper logging is ON → Mode: ${this.paperAiOnly ? 'AI-only' : 'user + AI'}
+Working doc: ${this.paperDocFile ? `"${this.paperDocFile.basename}.md"` : 'none'}
+Try: /paper doc <name>, /paper doc off, /paper create "name"`);
                 }
             }
 
@@ -819,14 +957,33 @@ class CopilotChatView extends ItemView {
         // Show loading spinner message
         const loadingEl = this.addMessage('assistant', '', true);
 
-        // Abort controller
+        // Create abort controller for this request
         this.abortController = new AbortController();
         this.updateSendButton(true);
+
+        // If a working doc is set, handle intelligent doc actions (unless it's a slash command)
+        if (this.paperDocFile && !message.startsWith('/')) {
+            try {
+                const action = this.detectDocAction(message); // 'ask' | 'append' | 'replace'
+                await this.processDocAction(action, message, loadingEl);
+                // Update usage display and autosave
+                this.updateUsageDisplay();
+                await this.saveCurrentSession();
+            } catch (error) {
+                loadingEl.remove();
+                if (error.message !== 'Generation stopped by user') {
+                    this.addMessage('assistant', `Error: ${error.message}`);
+                }
+            } finally {
+                this.updateSendButton(false);
+            }
+            return;
+        }
 
         try {
             let prompt = message;
 
-            // Custom /commands (not /paper)
+            // Handle other slash commands (custom commands)
             if (message.startsWith('/')) {
                 const commandName = message.slice(1).split(' ')[0];
                 const command = this.plugin.settings.commands.find(c =>
@@ -860,7 +1017,7 @@ class CopilotChatView extends ItemView {
             }
 
             // Build multi-turn chat contents from recent history.
-            // Replace the most recent user message with the processed prompt (no wiki expansion).
+            // Replace the most recent user message with the processed `prompt`.
             const history = this.messages.slice();
             if (history.length && history[history.length - 1].type === 'user') {
                 history[history.length - 1] = {
@@ -869,8 +1026,8 @@ class CopilotChatView extends ItemView {
                 };
             }
 
-            // Limit to the last N messages
-            const maxMessages = 12;
+            // Limit to the last N turns to keep requests small
+            const maxMessages = 12; // ~6 turns
             const recent = history.slice(-maxMessages);
 
             const contents = recent.map(m => ({
@@ -884,7 +1041,7 @@ class CopilotChatView extends ItemView {
             loadingEl.remove();
             this.addMessage('assistant', response);
 
-            // Update usage
+            // Update usage display after API call
             this.updateUsageDisplay();
 
             // Auto-save session after each exchange
@@ -897,6 +1054,99 @@ class CopilotChatView extends ItemView {
             }
         } finally {
             this.updateSendButton(false);
+        }
+    }
+
+    // Decide how to treat the user's intent relative to the working doc
+    detectDocAction(message) {
+        const lower = message.trim().toLowerCase();
+
+        const askRegex = /^(ask|what|who|where|when|why|how|explain|describe|summarize|tell me about|give me information about)/i;
+        const appendRegex = /^(append|add|insert|put|write|include|attach|add to the end)/i;
+        const replaceRegex = /^(replace|overwrite|rewrite|change|update|modify|edit|revise)/i;
+
+        if (appendRegex.test(lower)) return 'append';
+        if (replaceRegex.test(lower)) return 'replace';
+        if (askRegex.test(lower) || lower.endsWith('?')) return 'ask';
+        return 'ask';
+    }
+
+    buildDocPrompt(currentContent, userMessage, action) {
+        const header = `You are an expert Markdown editor working on a single .md document.`;
+        const docIntro = `Current document (Markdown):\n---\n${currentContent}\n---`;
+        if (action === 'ask') {
+            return `${header}
+
+Answer the user's question based ONLY on the document.
+Do not propose edits unless explicitly asked.
+Do not include the full document in your answer.
+
+${docIntro}
+
+User question:
+${userMessage}`;
+        } else if (action === 'append') {
+            return `${header}
+
+Create content to APPEND to the end of the document, following the user's instruction.
+Return ONLY the content to append in Markdown (no commentary, no code fences).
+
+${docIntro}
+
+Append instruction:
+${userMessage}`;
+        } else {
+            return `${header}
+
+Transform the entire document according to the user's instruction.
+Return ONLY the full, UPDATED document in Markdown.
+Do NOT include commentary or wrap the output in code fences.
+
+${docIntro}
+
+Rewrite/Transform instruction:
+${userMessage}`;
+        }
+    }
+
+    sanitizeModelOutput(text) {
+        if (!text) return '';
+        let out = text.trim();
+        if (out.startsWith('```')) {
+            const firstNL = out.indexOf('\n');
+            if (firstNL !== -1) {
+                out = out.slice(firstNL + 1);
+                if (out.endsWith('```')) {
+                    out = out.slice(0, -3).trim();
+                }
+            }
+        }
+        return out;
+    }
+
+    async processDocAction(action, message, loadingEl) {
+        const fileContent = await this.app.vault.read(this.paperDocFile);
+        const prompt = this.buildDocPrompt(fileContent, message, action);
+        const response = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
+
+        // Remove spinner and add assistant response to chat
+        loadingEl.remove();
+        this.addMessage('assistant', response);
+
+        // Apply to file if needed
+        if (action === 'ask') return;
+
+        const clean = this.sanitizeModelOutput(response);
+        try {
+            if (action === 'replace') {
+                await this.app.vault.modify(this.paperDocFile, clean);
+                new Notice(`Replaced content of "${this.paperDocFile.basename}.md"`);
+            } else if (action === 'append') {
+                await this.app.vault.append(this.paperDocFile, '\n\n' + clean + '\n');
+                new Notice(`Appended to "${this.paperDocFile.basename}.md"`);
+            }
+        } catch (e) {
+            new Notice(`Failed to update file: ${e.message}`);
         }
     }
 
@@ -943,16 +1193,11 @@ class CopilotChatView extends ItemView {
             return messageEl;
         }
 
-        const messageContentEl = messageEl.createDiv({
-            cls: 'copilot-message-content'
-        });
+        const messageContentEl = messageEl.createDiv({ cls: 'copilot-message-content' });
 
         if (type === 'assistant') {
             const modelName = this.plugin.settings.selectedModel.split('-').pop();
-            const modelEl = messageEl.createDiv({
-                cls: 'copilot-message-model',
-                text: modelName
-            });
+            const modelEl = messageEl.createDiv({ cls: 'copilot-message-model', text: modelName });
             modelEl.addEventListener('click', () => {
                 navigator.clipboard.writeText(content);
                 new Notice('Copied to clipboard');
@@ -1022,7 +1267,9 @@ class CopilotChatView extends ItemView {
 
     generateSessionTitle() {
         const firstUserMsg = this.messages.find(m => m.type === 'user');
-        return firstUserMsg ? firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '') : 'New Chat';
+        return firstUserMsg
+            ? firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '')
+            : 'New Chat';
     }
 
     async loadSession(sessionId) {
@@ -1047,8 +1294,7 @@ class CopilotChatView extends ItemView {
 
         if (this.plugin.settings.chatHistory.length === 0) {
             menu.addItem((item) => {
-                item.setTitle('No chat history')
-                    .setDisabled(true);
+                item.setTitle('No chat history').setDisabled(true);
             });
         } else {
             this.plugin.settings.chatHistory.forEach((session) => {
