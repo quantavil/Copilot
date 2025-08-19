@@ -797,6 +797,57 @@ class CopilotChatView extends ItemView {
         this.selectedSuggestionIndex = -1;
     }
 
+    parseAIResponse(response) {
+        const lines = response.split('\n');
+        const firstLine = lines[0].trim().toLowerCase();
+
+        const actionMap = {
+            ':ask:': 'ask',
+            ':append:': 'append',
+            ':replace:': 'replace'
+        };
+
+        for (const [directive, action] of Object.entries(actionMap)) {
+            if (firstLine === directive) {
+                // Join remaining lines and trim
+                const content = lines.slice(1).join('\n').trim();
+                return {
+                    action: action,
+                    content: content
+                };
+            }
+        }
+
+        // Check if directive is on the same line as content
+        for (const [directive, action] of Object.entries(actionMap)) {
+            if (firstLine.startsWith(directive)) {
+                // Remove the directive from the first line
+                const content = response.substring(directive.length).trim();
+                return {
+                    action: action,
+                    content: content
+                };
+            }
+        }
+
+        return {
+            action: 'ask',
+            content: response
+        };
+    }
+
+    getRelevantHistory(maxTurns = 6) {
+        const docSetIndex = this.messages.findLastIndex(msg =>
+            msg.docBoundary === true
+        );
+
+        const relevantMessages = docSetIndex >= 0
+            ? this.messages.slice(docSetIndex + 1)
+            : this.messages.slice(-maxTurns);
+
+        return relevantMessages;
+    }
+
     // Create a new "paper" file for logging
     async createPaperFile() {
         const now = new Date();
@@ -892,17 +943,28 @@ class CopilotChatView extends ItemView {
                 this.paperAiOnly = false;
                 new Notice('Paper logging: user + AI');
             } else if (sub === 'doc') {
-                // /paper doc <name>  OR  /paper doc off
                 const arg = restRaw.toLowerCase();
                 if (!restRaw || arg === 'off') {
                     this.paperDocFile = null;
                     new Notice('Cleared working document');
+                    this.messages.push({
+                        type: 'system',
+                        content: 'Working document cleared',
+                        timestamp: Date.now(),
+                        docBoundary: true
+                    });
                 } else {
                     const name = stripQuotes(restRaw);
                     const file = this.findMarkdownFileByQuery(name);
                     if (file) {
                         this.paperDocFile = file;
                         new Notice(`Working doc set: "${file.basename}.md"`);
+                        this.messages.push({
+                            type: 'system',
+                            content: `Working doc set: "${file.basename}.md"`,
+                            timestamp: Date.now(),
+                            docBoundary: true
+                        });
                     } else {
                         new Notice(`No markdown file found matching: ${name}`);
                     }
@@ -965,8 +1027,7 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
         // If a working doc is set, handle intelligent doc actions (unless it's a slash command)
         if (this.paperDocFile && !message.startsWith('/')) {
             try {
-                const action = this.detectDocAction(message); // 'ask' | 'append' | 'replace'
-                await this.processDocAction(action, message, loadingEl);
+                await this.processDocAction(message, loadingEl);
                 // Update usage display and autosave
                 this.updateUsageDisplay();
                 await this.saveCurrentSession();
@@ -1058,56 +1119,38 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
         }
     }
 
-    // Decide how to treat the user's intent relative to the working doc
-    detectDocAction(message) {
-        const lower = message.trim().toLowerCase();
-        const askRegex = /^(ask|what|which|who|whom|whose|where|when|why|how|explain|describe|summarize|outline|analyze|interpret|clarify|define|elaborate|list|identify|solve|tell me about|give me information about|inform me|details about)/i;
-        const appendRegex = /^(append|add|insert|put|write|include|attach|concatenate|merge|combine|extend|add on|add to the end|supplement|augment|expand with|append to)/i;
-        const replaceRegex = /^(replace|overwrite|rewrite|change|update|modify|edit|revise|substitute|swap|alter|correct|refactor|rework|overhaul|transform|patch|redo)/i;
-
-        if (appendRegex.test(lower)) return 'append';
-        if (replaceRegex.test(lower)) return 'replace';
-        if (askRegex.test(lower) || lower.endsWith('?')) return 'ask';
-
-        return 'ask';
-    }
-
-
-    buildDocPrompt(currentContent, userMessage, action) {
-        const header = `You are an expert Markdown editor working on a single .md document.`;
-        const docIntro = `Current document (Markdown):\n---\n${currentContent}\n---`;
-        if (action === 'ask') {
-            return `${header}
-
-Do not propose edits unless explicitly asked.
-Do not include the full document in your answer.
-
-${docIntro}
-
-User question:
-${userMessage}`;
-        } else if (action === 'append') {
-            return `${header}
-
-Create content to APPEND to the end of the document, following the user's instruction.
-Return ONLY the content to append in Markdown (no commentary, no code fences) unless it a code.
-
-${docIntro}
-
-Append instruction:
-${userMessage}`;
-        } else {
-            return `${header}
-
-Transform the entire document according to the user's instruction.
-Return ONLY the full, UPDATED document in Markdown.
-Do NOT include commentary or wrap the output in code fences unless it a code.
-
-${docIntro}
-
-Rewrite/Transform instruction:
-${userMessage}`;
+    buildDocPrompt(currentContent, userMessage, conversationHistory = []) {
+        let historyContext = '';
+        if (conversationHistory.length > 0) {
+            historyContext = '\nPrevious conversation:\n';
+            conversationHistory.forEach(msg => {
+                if (msg.type === 'user') {
+                    historyContext += `User: ${msg.content}\n`;
+                } else if (msg.type === 'assistant') {
+                    const cleaned = msg.content.replace(/^:[a-z]+:\s*\n/i, '');
+                    historyContext += `Assistant: ${cleaned}\n`;
+                }
+            });
+            historyContext += '\n---\n';
         }
+
+        return `You are an expert editor working as an assistant.
+IMPORTANT: Start your response with ONE of these directives on its own line:
+:ask: - If the user is asking a question about the document
+:append: - If the user wants to add content to the end
+:replace: - If the user wants to modify/rewrite the document
+
+After the directive, provide your response.
+
+${historyContext}
+Current document (Markdown):
+---
+${currentContent}
+---
+
+User message: ${userMessage}
+
+Consider the conversation history when determining your action and response.`;
     }
 
     sanitizeModelOutput(text) {
@@ -1125,19 +1168,20 @@ ${userMessage}`;
         return out;
     }
 
-    async processDocAction(action, message, loadingEl) {
+    async processDocAction(message, loadingEl) {
         const fileContent = await this.app.vault.read(this.paperDocFile);
-        const prompt = this.buildDocPrompt(fileContent, message, action);
-        const response = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
+        const history = this.getRelevantHistory();
+        const prompt = this.buildDocPrompt(fileContent, message, history);
+        const rawResponse = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
 
-        // Remove spinner and add assistant response to chat
+        const { action, content } = this.parseAIResponse(rawResponse);
+
         loadingEl.remove();
-        this.addMessage('assistant', response);
+        this.addMessage('assistant', content);
 
-        // Apply to file if needed
         if (action === 'ask') return;
 
-        const clean = this.sanitizeModelOutput(response);
+        const clean = this.sanitizeModelOutput(content);
         try {
             if (action === 'replace') {
                 await this.app.vault.modify(this.paperDocFile, clean);
@@ -1207,6 +1251,9 @@ ${userMessage}`;
 
         if (type === 'assistant') {
             MarkdownRenderer.render(this.app, content, messageContentEl, '', this);
+        } else if (type === 'system') {
+            messageContentEl.setText(content);
+            messageEl.addClass('system-message');
         } else {
             messageContentEl.setText(content);
         }
