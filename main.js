@@ -1061,16 +1061,17 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
     // Decide how to treat the user's intent relative to the working doc
     detectDocAction(message) {
         const lower = message.trim().toLowerCase();
-
-        const askRegex = /^(ask|what|who|where|when|why|how|explain|describe|summarize|solve|tell me about|give me information about)/i;
-        const appendRegex = /^(append|add|insert|put|write|include|attach|add to the end)/i;
-        const replaceRegex = /^(replace|overwrite|rewrite|change|update|modify|edit|revise)/i;
+        const askRegex = /^(ask|what|which|who|whom|whose|where|when|why|how|explain|describe|summarize|outline|analyze|interpret|clarify|define|elaborate|list|identify|solve|tell me about|give me information about|inform me|details about)/i;
+        const appendRegex = /^(append|add|insert|put|write|include|attach|concatenate|merge|combine|extend|add on|add to the end|supplement|augment|expand with|append to)/i;
+        const replaceRegex = /^(replace|overwrite|rewrite|change|update|modify|edit|revise|substitute|swap|alter|correct|refactor|rework|overhaul|transform|patch|redo)/i;
 
         if (appendRegex.test(lower)) return 'append';
         if (replaceRegex.test(lower)) return 'replace';
         if (askRegex.test(lower) || lower.endsWith('?')) return 'ask';
+
         return 'ask';
     }
+
 
     buildDocPrompt(currentContent, userMessage, action) {
         const header = `You are an expert Markdown editor working on a single .md document.`;
@@ -1078,7 +1079,6 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
         if (action === 'ask') {
             return `${header}
 
-Answer the user's question based ONLY on the document.
 Do not propose edits unless explicitly asked.
 Do not include the full document in your answer.
 
@@ -1090,7 +1090,7 @@ ${userMessage}`;
             return `${header}
 
 Create content to APPEND to the end of the document, following the user's instruction.
-Return ONLY the content to append in Markdown (no commentary, no code fences).
+Return ONLY the content to append in Markdown (no commentary, no code fences) unless it a code.
 
 ${docIntro}
 
@@ -1101,7 +1101,7 @@ ${userMessage}`;
 
 Transform the entire document according to the user's instruction.
 Return ONLY the full, UPDATED document in Markdown.
-Do NOT include commentary or wrap the output in code fences.
+Do NOT include commentary or wrap the output in code fences unless it a code.
 
 ${docIntro}
 
