@@ -9,7 +9,7 @@ Obsidian Copilot brings the power of Google's Gemini API directly into your Obsi
 - **🧠 Context-Aware Prompts:** Enhance your prompts with the content of your current note, linked notes, or notes with specific tags.
 - **⚡️ Slash Commands:** Access your custom commands instantly from the editor by typing `/`.
 - **✍️ Flexible Output:** Choose to have AI-generated content replace your selected text or view it in a modal to copy and paste.
-- **📄 Canvas Integration:** Save your conversations to a new "canvas" file using `/canvas`. You can also work on a specific file by setting it as a "context file" with `/canvas -f [[Note Title]]`.
+- **📄 Canvas Integration:** Save your conversations to a new "canvas" file using `/canvas`.
 - **MODEL SELECTION:** Choose between different Gemini models (`gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`) directly from the chat interface.
 - **CHAT HISTORY:** Your chat history is saved and can be accessed from the chat view.
 

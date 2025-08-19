@@ -58,7 +58,7 @@ class CopilotPlugin extends Plugin {
         };
 
         // Merge saved data with defaults
-        this.settings = Object.assign({}, defaultSettings, savedData);
+        this.settings = { ...defaultSettings, ...savedData };
 
         // Ensure commands is an array (safety check)
         if (!Array.isArray(this.settings.commands)) {
@@ -88,8 +88,8 @@ class CopilotPlugin extends Plugin {
         await this.saveSettings();
     }
 
-    async saveSettings() {
-        await this.saveData(this.settings);
+    saveSettings() {
+        this.saveData(this.settings);
     }
 
     // Use ISO yyyy-mm-dd keys, safe for string comparison
@@ -134,16 +134,8 @@ class CopilotPlugin extends Plugin {
     async trackUsage(model, tokensUsed) {
         const today = this.todayKey();
 
-        if (!this.settings.usageData[today]) {
-            await this.initializeUsageTracking();
-        }
-
-        if (!this.settings.usageData[today][model]) {
-            this.settings.usageData[today][model] = {
-                requests: 0,
-                tokens: 0
-            };
-        }
+        this.settings.usageData[today] = this.settings.usageData[today] || {};
+        this.settings.usageData[today][model] = this.settings.usageData[today][model] || { requests: 0, tokens: 0 };
 
         this.settings.usageData[today][model].requests += 1;
         this.settings.usageData[today][model].tokens += tokensUsed;
@@ -153,10 +145,7 @@ class CopilotPlugin extends Plugin {
 
     getUsageForModel(model) {
         const today = this.todayKey();
-        if (!this.settings.usageData || !this.settings.usageData[today] || !this.settings.usageData[today][model]) {
-            return { requests: 0, tokens: 0 };
-        }
-        return this.settings.usageData[today][model];
+        return this.settings.usageData?.[today]?.[model] || { requests: 0, tokens: 0 };
     }
 
     registerCommands() {
@@ -210,22 +199,21 @@ class CopilotPlugin extends Plugin {
 
         menu.addSeparator();
 
-        menu.addItem((item) => {
-            item.setTitle('Copilot Actions')
-                .setIcon('bot');
-            const subMenu = item.setSubmenu();
+        const subMenu = menu.addItem((item) => {
+            item.setTitle('Copilot Actions').setIcon('bot');
+            return item.setSubmenu();
+        });
 
-            this.settings.commands.forEach(cmd => {
-                if (cmd.enabled) {
-                    subMenu.addItem((subItem) => {
-                        subItem
-                            .setTitle(cmd.name)
-                            .onClick(() => {
-                                this.executeCommand(cmd, editor, view);
-                            });
-                    });
-                }
-            });
+        this.settings.commands.forEach(cmd => {
+            if (cmd.enabled) {
+                subMenu.addItem((subItem) => {
+                    subItem
+                        .setTitle(cmd.name)
+                        .onClick(() => {
+                            this.executeCommand(cmd, editor, view);
+                        });
+                });
+            }
         });
     }
 
@@ -297,26 +285,6 @@ class CopilotPlugin extends Plugin {
             }
         }
 
-        // Replace {#tag1, #tag2} with notes containing tags
-        const tagMatches = processed.match(/\{(#[^}]+)\}/g);
-        if (tagMatches) {
-            for (const match of tagMatches) {
-                const tags = match.slice(1, -1).split(',').map(t => t.trim());
-                const files = this.app.vault.getMarkdownFiles().filter(file => {
-                    const cache = this.app.metadataCache.getFileCache(file);
-                    if (!cache || !cache.tags) return false;
-                    return tags.some(tag => cache.tags.some(t => t.tag === tag));
-                });
-
-                let content = '';
-                for (const file of files) {
-                    content += `\n\n--- ${file.basename} ---\n`;
-                    content += await this.app.vault.read(file);
-                }
-                processed = processed.replace(match, content);
-            }
-        }
-
         return processed;
     }
 
@@ -337,14 +305,38 @@ class CopilotPlugin extends Plugin {
                 : {})
         };
 
-        let res;
         try {
-            res = await fetch(url, {
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(requestBody),
                 signal: abortSignal
             });
+
+            const json = await res.json().catch(() => null);
+
+            if (res.status === 401 || res.status === 403) {
+                this.settings.apiVerified = false;
+                await this.saveSettings();
+                const msg = json?.error?.message || `API key invalid or unauthorized (status ${res.status})`;
+                throw new Error(msg);
+            }
+
+            if (!res.ok) {
+                const msg = json?.error?.message || `HTTP ${res.status}`;
+                throw new Error(msg);
+            }
+
+            const parts = json?.candidates?.[0]?.content?.parts || [];
+            const text = parts.map(p => p.text || '').join('').trim();
+
+            // Track usage - estimate tokens (rough approximation)
+            const estimatedTokens = Math.ceil((JSON.stringify(requestBody).length + text.length) / 4);
+            await this.trackUsage(this.settings.selectedModel, estimatedTokens);
+
+            if (text) return text;
+
+            throw new Error('Invalid response from API');
         } catch (error) {
             if (error.name === 'AbortError') {
                 throw new Error('Generation stopped by user');
@@ -352,47 +344,13 @@ class CopilotPlugin extends Plugin {
             console.error('Gemini API network error:', error);
             throw error;
         }
-
-        let json = null;
-        try {
-            json = await res.json();
-        } catch (_) {
-            // ignore JSON parse errors
-        }
-
-        if (res.status === 401 || res.status === 403) {
-            this.settings.apiVerified = false;
-            await this.saveSettings();
-            const msg = json?.error?.message || `API key invalid or unauthorized (status ${res.status})`;
-            throw new Error(msg);
-        }
-
-        if (!res.ok) {
-            const msg = json?.error?.message || `HTTP ${res.status}`;
-            throw new Error(msg);
-        }
-
-        const parts = json?.candidates?.[0]?.content?.parts || [];
-        const text = parts.map(p => p.text || '').join('').trim();
-
-        // Track usage - estimate tokens (rough approximation)
-        const estimatedTokens = Math.ceil((JSON.stringify(requestBody).length + text.length) / 4);
-        await this.trackUsage(this.settings.selectedModel, estimatedTokens);
-
-        if (text) return text;
-
-        throw new Error('Invalid response from API');
     }
 
     async verifyAPIKey(apiKey) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
 
         try {
-            const response = await requestUrl({
-                url: url,
-                method: 'GET'
-            });
-
+            const response = await requestUrl({ url, method: 'GET' });
             return response.status === 200;
         } catch (error) {
             return false;
@@ -417,6 +375,33 @@ class ConfirmationModal extends Modal {
 
         const confirmBtn = buttonContainer.createEl('button', {
             text: 'Yes, clear history',
+            cls: 'mod-cta'
+        });
+        confirmBtn.addEventListener('click', () => {
+            this.onConfirm();
+            this.close();
+        });
+
+        const cancelBtn = buttonContainer.createEl('button', { text: 'Cancel' });
+        cancelBtn.addEventListener('click', () => this.close());
+    }
+}
+
+class ReplaceConfirmationModal extends Modal {
+    constructor(app, onConfirm) {
+        super(app);
+        this.onConfirm = onConfirm;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl('h2', { text: 'Are you sure?' });
+        contentEl.createEl('p', { text: 'This will replace the entire content of the note. Are you sure you want to continue?' });
+
+        const buttonContainer = contentEl.createDiv({ cls: 'copilot-button-container' });
+
+        const confirmBtn = buttonContainer.createEl('button', {
+            text: 'Yes, replace it',
             cls: 'mod-cta'
         });
         confirmBtn.addEventListener('click', () => {
@@ -507,14 +492,27 @@ class FileContextManager {
 
     detectContextAction(message) {
         const lower = message.trim().toLowerCase();
-        if (lower.startsWith('append ') || lower.startsWith('append:') ||
-            lower.startsWith('add ') || lower.startsWith('add:')) {
-            return 'append';
-        }
-        if (lower.startsWith('ask ') || lower.startsWith('ask:') || lower.endsWith('?')) {
+
+        // More robust 'ask' detection
+        const askRegex = /^(ask|what|who|where|when|why|how|explain|describe|solve|summarize|tell me about|give me information about)/i;
+        if (askRegex.test(lower) || lower.endsWith('?')) {
             return 'ask';
         }
-        return 'replace';
+
+        // More robust 'append' detection
+        const appendRegex = /^(append|add|insert|put|write|include|attach|add to the end)/i;
+        if (appendRegex.test(lower)) {
+            return 'append';
+        }
+
+        // More robust 'replace' detection
+        const replaceRegex = /^(replace|overwrite|rewrite|change|update|modify|edit|revise)/i;
+        if (replaceRegex.test(lower)) {
+            return 'replace';
+        }
+
+        // Default to a safe action or ask for clarification
+        return 'none'; // Or 'ask_for_clarification'
     }
 
     buildContextFilePrompt(currentContent, userMessage, action) {
@@ -855,13 +853,6 @@ class CopilotChatView extends ItemView {
             return;
         }
 
-        // Check for tags
-        const tagMatch = textBeforeCursor.match(/#([A-Za-z0-9\/_-]*)$/);
-        if (tagMatch) {
-            this.showTagSuggestions(tagMatch[1]);
-            return;
-        }
-
         this.hideSuggestions();
     }
 
@@ -905,36 +896,7 @@ class CopilotChatView extends ItemView {
         this.displaySuggestions();
     }
 
-    showTagSuggestions(query) {
-        const tags = new Set();
 
-        // Collect all tags from metadata cache
-        this.app.vault.getMarkdownFiles().forEach(file => {
-            const cache = this.app.metadataCache.getFileCache(file);
-            if (cache && cache.tags) {
-                cache.tags.forEach(tag => {
-                    tags.add(tag.tag.substring(1)); // Remove # prefix
-                });
-            }
-        });
-
-        const matches = Array.from(tags)
-            .filter(tag => tag.toLowerCase().includes(query.toLowerCase()))
-            .slice(0, 10);
-
-        if (matches.length === 0) {
-            this.hideSuggestions();
-            return;
-        }
-
-        this.currentSuggestions = matches.map(tag => ({
-            type: 'tag',
-            value: tag,
-            data: tag
-        }));
-
-        this.displaySuggestions();
-    }
 
     displaySuggestions() {
         this.suggestionsEl.empty();
@@ -951,9 +913,6 @@ class CopilotChatView extends ItemView {
                 item.createSpan({ text: '[[', cls: 'copilot-suggestion-prefix' });
                 item.createSpan({ text: suggestion.value });
                 item.createSpan({ text: ']]', cls: 'copilot-suggestion-prefix' });
-            } else if (suggestion.type === 'tag') {
-                item.createSpan({ text: '#', cls: 'copilot-suggestion-prefix' });
-                item.createSpan({ text: suggestion.value });
             }
 
             item.addEventListener('click', () => {
@@ -1008,14 +967,9 @@ class CopilotChatView extends ItemView {
             replaceLength = match ? match[0].length : 0;
             newText = '/' + suggestion.value + ' ';
         } else if (suggestion.type === 'note') {
-            // Match the opening [[ and whatever the user typed after it (no closing required)
             const match = textBeforeCursor.match(/\[\[([^\]]*)$/);
             replaceLength = match ? match[0].length : 0;
             newText = '[[' + suggestion.value + ']]';
-        } else if (suggestion.type === 'tag') {
-            const match = textBeforeCursor.match(/#([A-Za-z0-9\/_-]*)$/);
-            replaceLength = match ? match[0].length : 0;
-            newText = '#' + suggestion.value + ' ';
         }
 
         const newValue = textBeforeCursor.substring(0, cursorPos - replaceLength) + newText + textAfterCursor;
@@ -1037,20 +991,15 @@ class CopilotChatView extends ItemView {
         if (!message) return;
 
         // Handle canvas commands first (no history, no chat message)
-        if (message === '/canvas') {
-            this.fileCtx.createCanvasFile();
-            this.inputEl.value = '';
-            this.inputEl.style.height = 'auto';
-            return;
-        } else if (message === '/canvas -o') {
-            this.canvasOutputOnly = true;
-            this.fileCtx.createCanvasFile();
-            this.inputEl.value = '';
-            this.inputEl.style.height = 'auto';
-            return;
-        } else if (message.startsWith('/canvas -f')) {
-            // Set the working file context for the session
-            await this.fileCtx.setContextFileFromCommand(message);
+        if (message.startsWith('/canvas')) {
+            if (message === '/canvas') {
+                this.fileCtx.createCanvasFile();
+            } else if (message === '/canvas -o') {
+                this.canvasOutputOnly = true;
+                this.fileCtx.createCanvasFile();
+            } else if (message.startsWith('/canvas -f')) {
+                await this.fileCtx.setContextFileFromCommand(message);
+            }
             this.inputEl.value = '';
             this.inputEl.style.height = 'auto';
             return;
@@ -1066,8 +1015,7 @@ class CopilotChatView extends ItemView {
         }
 
         // Remove welcome message if it exists
-        const welcomeEl = this.chatContainer.querySelector('.copilot-welcome');
-        if (welcomeEl) welcomeEl.remove();
+        this.chatContainer.querySelector('.copilot-welcome')?.remove();
 
         // Add user message to chat
         this.addMessage('user', message);
@@ -1084,37 +1032,26 @@ class CopilotChatView extends ItemView {
         try {
             // If a working file is active, all operations should target it
             if (this.contextFile) {
-                const action = this.fileCtx.detectContextAction(message); // 'replace' | 'append' | 'ask'
-                const fileContent = await this.app.vault.read(this.contextFile);
-                const prompt = this.fileCtx.buildContextFilePrompt(fileContent, message, action);
-                const response = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
+                const action = this.fileCtx.detectContextAction(message); // 'replace' | 'append' | 'ask' | 'none'
 
-                // Remove spinner and add assistant response to chat
-                loadingEl.remove();
-                this.addMessage('assistant', response);
-
-                // Apply to file if needed
-                const clean = this.fileCtx.sanitizeModelOutput(response);
-                try {
+                if (action === 'none') {
+                    // If the action is not clear, treat it as a normal chat message
+                } else {
                     if (action === 'replace') {
-                        await this.app.vault.modify(this.contextFile, clean);
-                        new Notice(`Replaced content of "${this.contextFile.basename}"`);
-                    } else if (action === 'append') {
-                        await this.app.vault.append(this.contextFile, '\n\n' + clean + '\n');
-                        new Notice(`Appended to "${this.contextFile.basename}"`);
+                        new ReplaceConfirmationModal(this.app, async () => {
+                            await this.processFileAction(action, message, loadingEl);
+                        }).open();
                     } else {
-                        // 'ask' -> no file write
+                        await this.processFileAction(action, message, loadingEl);
                     }
-                } catch (e) {
-                    new Notice(`Failed to update file: ${e.message}`);
+    
+                    // Update usage display after API call
+                    this.updateUsageDisplay();
+    
+                    // Auto-save session after each exchange
+                    await this.saveCurrentSession();
+                    return;
                 }
-
-                // Update usage display after API call
-                this.updateUsageDisplay();
-
-                // Auto-save session after each exchange
-                await this.saveCurrentSession();
-                return;
             }
 
             // Normal chat flow (no working file context)
@@ -1153,7 +1090,7 @@ class CopilotChatView extends ItemView {
                     return;
                 }
             } else {
-                // Process any [[Note]] or #tag references in the message
+                // Process any [[Note]] references in the message
                 prompt = await this.processChatPrompt(message);
             }
 
@@ -1198,6 +1135,32 @@ class CopilotChatView extends ItemView {
         }
     }
 
+    async processFileAction(action, message, loadingEl) {
+        const fileContent = await this.app.vault.read(this.contextFile);
+        const prompt = this.fileCtx.buildContextFilePrompt(fileContent, message, action);
+        const response = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
+
+        // Remove spinner and add assistant response to chat
+        loadingEl.remove();
+        this.addMessage('assistant', response);
+
+        // Apply to file if needed
+        const clean = this.fileCtx.sanitizeModelOutput(response);
+        try {
+            if (action === 'replace') {
+                await this.app.vault.modify(this.contextFile, clean);
+                new Notice(`Replaced content of "${this.contextFile.basename}"`);
+            } else if (action === 'append') {
+                await this.app.vault.append(this.contextFile, '\n\n' + clean + '\n');
+                new Notice(`Appended to "${this.contextFile.basename}"`);
+            } else {
+                // 'ask' -> no file write
+            }
+        } catch (e) {
+            new Notice(`Failed to update file: ${e.message}`);
+        }
+    }
+
     updateSendButton(isLoading) {
         this.isLoading = isLoading;
         const sendButton = this.containerEl.querySelector('.copilot-send-button');
@@ -1233,27 +1196,6 @@ class CopilotChatView extends ItemView {
                     const content = await this.app.vault.read(file);
                     processed = processed.replace(match, `--- Content of ${noteName} ---${content}--- End of ${noteName} ---`);
                 }
-            }
-        }
-
-        // Process #tag references (unique only, to avoid ballooning)
-        const tagTokens = new Set(processed.match(/#(\w+)/g) || []);
-        for (const tag of tagTokens) {
-            const files = this.app.vault.getMarkdownFiles().filter(file => {
-                const cache = this.app.metadataCache.getFileCache(file);
-                return cache && cache.tags && cache.tags.some(t => t.tag === tag);
-            });
-
-            if (files.length > 0) {
-                let tagContent = `--- Notes with tag: ${tag.substring(1)} ---`;
-                for (const file of files) {
-                    const content = await this.app.vault.read(file);
-                    tagContent += `### ${file.basename}${content}`;
-                }
-                tagContent += `--- End of tag: ${tag.substring(1)} ---`;
-
-                // Replace only the first occurrence for this tag to avoid repeated inserts
-                processed = processed.replace(tag, tagContent);
             }
         }
 
@@ -1378,26 +1320,23 @@ class CopilotChatView extends ItemView {
     generateSessionTitle() {
         // Generate title from first user message
         const firstUserMsg = this.messages.find(m => m.type === 'user');
-        if (firstUserMsg) {
-            return firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '');
-        }
-        return 'New Chat';
+        return firstUserMsg ? firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '') : 'New Chat';
     }
 
     async loadSession(sessionId) {
         const session = this.plugin.settings.chatHistory.find(s => s.id === sessionId);
-        if (session) {
-            this.messages = [...session.messages];
-            this.currentSessionId = sessionId;
-            this.renderAllMessages();
-        }
+        if (!session) return;
+
+        this.messages = [...session.messages];
+        this.currentSessionId = sessionId;
+        this.renderAllMessages();
     }
 
     renderAllMessages() {
         this.chatContainer.empty();
-        this.messages.forEach(msg => {
+        for (const msg of this.messages) {
             this.addMessage(msg.type, msg.content, false, false);
-        });
+        }
     }
 
     showHistoryMenu(button) {
@@ -1506,20 +1445,20 @@ class SlashCommandSuggestor extends EditorSuggest {
         const view = this.app.workspace.getActiveViewOfType(MarkdownView);
         const editor = view?.editor;
 
-        if (editor) {
-            // Clear the slash command from editor
-            const cursor = editor.getCursor();
-            const line = editor.getLine(cursor.line);
-            const match = line.match(/(^|\s)(\/[A-Za-z0-9-]*)$/);
+        if (!editor) return;
 
-            if (match) {
-                const start = cursor.ch - match[2].length;
-                editor.replaceRange('', { line: cursor.line, ch: start }, cursor);
-            }
+        // Clear the slash command from editor
+        const cursor = editor.getCursor();
+        const line = editor.getLine(cursor.line);
+        const match = line.match(/(^|\s)(\/[A-Za-z0-9-]*)$/);
 
-            // Execute the command
-            this.plugin.executeCommand(command, editor, view);
+        if (match) {
+            const start = cursor.ch - match[2].length;
+            editor.replaceRange('', { line: cursor.line, ch: start }, cursor);
         }
+
+        // Execute the command
+        this.plugin.executeCommand(command, editor, view);
     }
 }
 
@@ -1608,8 +1547,7 @@ class CopilotSettingTab extends PluginSettingTab {
                     .setButtonText('Verify')
                     .onClick(async () => {
                         // Remove any existing status
-                        const existingStatus = containerEl.querySelector('.copilot-api-status');
-                        if (existingStatus) existingStatus.remove();
+                        containerEl.querySelector('.copilot-api-status')?.remove();
 
                         // Create status element after the setting item
                         const settingItem = button.buttonEl.closest('.setting-item');
@@ -1618,17 +1556,11 @@ class CopilotSettingTab extends PluginSettingTab {
 
                         const isValid = await this.plugin.verifyAPIKey(this.plugin.settings.apiKey);
 
-                        if (isValid) {
-                            this.plugin.settings.apiVerified = true;
-                            await this.plugin.saveSettings();
-                            status.addClass('success');
-                            status.setText('✓ API key verified successfully');
-                        } else {
-                            this.plugin.settings.apiVerified = false;
-                            await this.plugin.saveSettings();
-                            status.addClass('error');
-                            status.setText('✗ Invalid API key');
-                        }
+                        this.plugin.settings.apiVerified = isValid;
+                        await this.plugin.saveSettings();
+
+                        status.addClass(isValid ? 'success' : 'error');
+                        status.setText(isValid ? '✓ API key verified successfully' : '✗ Invalid API key');
                     });
             });
 
@@ -1842,7 +1774,7 @@ class CommandEditModal extends Modal {
         // Prompt input
         new Setting(form)
             .setName('Prompt Template')
-            .setDesc('Use {} for selected text, {activeNote} for current note, {[[Note]]} for linked notes, {#tag} for tagged notes')
+            .setDesc('Use {} for selected text, {activeNote} for current note, {[[Note]]} for linked notes')
             .addTextArea(text => {
                 this.promptInput = text;
                 text
