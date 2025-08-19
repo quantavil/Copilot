@@ -868,10 +868,11 @@ class CopilotChatView extends ItemView {
         // /paper command handler (logging + doc ops setup)
         if (message.startsWith('/paper')) {
             const raw = message.slice(6).trim(); // cut "/paper"
-            const [subcmd, ...restTokens] = raw.length ? raw.split(/\s+/) : [''];
-            const sub = (subcmd || '').toLowerCase();
-            const restRaw = restTokens.join(' ').trim();
-            const stripQuotes = (s) => s?.replace(/^"(.*)"$/, '$1').trim();
+            const m = raw.match(/^([a-z-]+)\s*(.*)$/i) || [];
+            const sub = (m[1] || '').toLowerCase();
+            const restRaw = (m[2] || '').trim();
+            const stripQuotes = (s) => s?.replace(/^"'["']$/, '$1').trim();
+
 
             if (sub === 'off') {
                 this.paperFile = null;
@@ -1061,7 +1062,7 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
     detectDocAction(message) {
         const lower = message.trim().toLowerCase();
 
-        const askRegex = /^(ask|what|who|where|when|why|how|explain|describe|summarize|tell me about|give me information about)/i;
+        const askRegex = /^(ask|what|who|where|when|why|how|explain|describe|summarize|solve|tell me about|give me information about)/i;
         const appendRegex = /^(append|add|insert|put|write|include|attach|add to the end)/i;
         const replaceRegex = /^(replace|overwrite|rewrite|change|update|modify|edit|revise)/i;
 
