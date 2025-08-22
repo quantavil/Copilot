@@ -532,8 +532,8 @@ class CopilotChatView extends ItemView {
         });
 
         this.inputEl.addEventListener('keydown', (e) => {
-            // Suggestions navigation
-            if (this.suggestionsEl.style.display !== 'none') {
+            // Suggestions navigation - only when suggestions are visible
+            if (this.suggestionsEl.style.display !== 'none' && this.currentSuggestions.length > 0) {
                 if (e.key === 'Tab') {
                     e.preventDefault();
                     if (this.selectedSuggestionIndex >= 0) this.selectSuggestion(this.selectedSuggestionIndex);
@@ -557,24 +557,26 @@ class CopilotChatView extends ItemView {
                 }
             }
 
-            // Prompt history
-            if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (this.promptHistoryIndex > 0) {
+            // Prompt history - only when cursor is at the beginning of the input
+            if (e.key === 'ArrowUp' && this.inputEl.selectionStart === 0 && this.inputEl.selectionEnd === 0) {
+                if (this.promptHistory.length > 0 && this.promptHistoryIndex > 0) {
+                    e.preventDefault();
                     this.promptHistoryIndex--;
                     this.inputEl.value = this.promptHistory[this.promptHistoryIndex];
                     this.inputEl.selectionStart = this.inputEl.selectionEnd = this.inputEl.value.length;
                 }
                 return;
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (this.promptHistoryIndex < this.promptHistory.length - 1) {
-                    this.promptHistoryIndex++;
-                    this.inputEl.value = this.promptHistory[this.promptHistoryIndex];
-                    this.inputEl.selectionStart = this.inputEl.selectionEnd = this.inputEl.value.length;
-                } else if (this.promptHistoryIndex === this.promptHistory.length - 1) {
-                    this.promptHistoryIndex++;
-                    this.inputEl.value = '';
+            } else if (e.key === 'ArrowDown' && this.inputEl.selectionStart === this.inputEl.value.length && this.inputEl.selectionEnd === this.inputEl.value.length) {
+                if (this.promptHistory.length > 0) {
+                    e.preventDefault();
+                    if (this.promptHistoryIndex < this.promptHistory.length - 1) {
+                        this.promptHistoryIndex++;
+                        this.inputEl.value = this.promptHistory[this.promptHistoryIndex];
+                        this.inputEl.selectionStart = this.inputEl.selectionEnd = this.inputEl.value.length;
+                    } else if (this.promptHistoryIndex === this.promptHistory.length - 1) {
+                        this.promptHistoryIndex++;
+                        this.inputEl.value = '';
+                    }
                 }
                 return;
             }
