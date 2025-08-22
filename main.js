@@ -1003,14 +1003,7 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
         this.promptHistory.push(message);
         this.promptHistoryIndex = this.promptHistory.length;
         
-        const match = message.match(/^\/(\w+)\s*(.*)|(.*)\s*\/(\w+)$/);
-        if (match) {
-            const commandName = match[1] || match[4];
-            const command = this.plugin.settings.commands.find(c => c.name.toLowerCase() === commandName.toLowerCase());
-            if (command) {
-                this.addMessage('user', message);
-            }
-        }
+        
 
 
         if (!this.plugin.settings.apiKey || !this.plugin.settings.apiVerified) {
