@@ -1000,9 +1000,18 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
             return;
         }
 
-        // Add to prompt history
         this.promptHistory.push(message);
         this.promptHistoryIndex = this.promptHistory.length;
+        
+        const match = message.match(/^\/(\w+)\s*(.*)|(.*)\s*\/(\w+)$/);
+        if (match) {
+            const commandName = match[1] || match[4];
+            const command = this.plugin.settings.commands.find(c => c.name.toLowerCase() === commandName.toLowerCase());
+            if (command) {
+                this.addMessage('user', message);
+            }
+        }
+
 
         if (!this.plugin.settings.apiKey || !this.plugin.settings.apiVerified) {
             new Notice('Please configure your Gemini API key in settings');
@@ -1025,7 +1034,8 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
         this.updateSendButton(true);
 
         // If a working doc is set, handle intelligent doc actions (unless it's a slash command)
-        if (this.paperDocFile && !message.startsWith('/')) {
+        const docActionMatch = message.match(/^\/(\w+)\s*(.*)|(.*)\s*\/(\w+)$/);
+        if (this.paperDocFile && !docActionMatch) {
             try {
                 await this.processDocAction(message, loadingEl);
                 // Update usage display and autosave
@@ -1046,8 +1056,9 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
             let prompt = message;
 
             // Handle other slash commands (custom commands)
-            if (message.startsWith('/')) {
-                const commandName = message.slice(1).split(' ')[0];
+            const slashCommandMatch = message.match(/^\/(\w+)\s*(.*)|(.*)\s*\/(\w+)$/);
+            if (slashCommandMatch) {
+                const commandName = slashCommandMatch[1] || slashCommandMatch[4];
                 const command = this.plugin.settings.commands.find(c =>
                     c.name.toLowerCase() === commandName.toLowerCase()
                 );
@@ -1055,7 +1066,7 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
                 if (command) {
                     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
                     const selection = activeView ? activeView.editor.getSelection() : '';
-                    const commandArgs = message.substring(commandName.length + 2).trim();
+                    const commandArgs = (slashCommandMatch[2] || slashCommandMatch[3] || '').trim();
                     const textToProcess = commandArgs || selection;
 
                     if (!textToProcess && command.prompt.includes('{}')) {
