@@ -452,7 +452,7 @@ class CopilotPlugin extends Plugin {
 
         try {
             const prompt = await this.processPrompt(command.prompt, selection, view);
-            const response = await this.callGeminiWithTools(prompt);
+            const { text: response } = await this.callGeminiWithTools(prompt);
 
             // Update usage in chat view
             const chatViews = this.app.workspace.getLeavesOfType(COPILOT_VIEW_TYPE);
@@ -563,6 +563,7 @@ class CopilotPlugin extends Plugin {
         const toolDecls = this.tools?.getDeclarations(toolNames) || [];
         const maxIters = 6;
         let toolErrors = []; // Track tool errors for potential fallback message
+        let toolCalls = []; // To store tool calls
 
         for (let iter = 0; iter < maxIters; iter++) {
             const requestBody = {
@@ -619,19 +620,21 @@ class CopilotPlugin extends Plugin {
                         if (!this.tools?.has(name)) {
                             toolResponse = { ok: false, error: `Tool not registered: ${name}` };
                             toolFailed = true;
-                            toolErrors.push(`Tool "${name}" is not available`);
+                            toolErrors.push(`Tool \"${name}\" is not available`);
                         } else {
                             toolResponse = await this.tools.execute(name, args);
                             if (!toolResponse.ok) {
                                 toolFailed = true;
-                                toolErrors.push(`Tool "${name}" failed: ${toolResponse.error}`);
+                                toolErrors.push(`Tool \"${name}\" failed: ${toolResponse.error}`);
                             }
                         }
                     } catch (e) {
                         toolResponse = { ok: false, error: String(e.message || e) };
                         toolFailed = true;
-                        toolErrors.push(`Tool "${name}" error: ${e.message}`);
+                        toolErrors.push(`Tool \"${name}\" error: ${e.message}`);
                     }
+
+                    toolCalls.push({ name, args, response: toolResponse });
 
                     // If this is the last iteration and we have tool failures, 
                     // ask the model to continue without the tool
@@ -668,9 +671,9 @@ class CopilotPlugin extends Plugin {
                             if (fallbackText) {
                                 // Add a note about the tool failure if not already mentioned
                                 if (!fallbackText.toLowerCase().includes('tool') && !fallbackText.toLowerCase().includes('error')) {
-                                    return `I encountered an issue with some tools, but here's what I can help you with:\n\n${fallbackText}`;
+                                    return { text: `I encountered an issue with some tools, but here's what I can help you with:\n\n${fallbackText}`, toolCalls };
                                 }
-                                return fallbackText;
+                                return { text: fallbackText, toolCalls };
                             }
                         } catch (fallbackError) {
                             console.error('Fallback request failed:', fallbackError);
@@ -694,21 +697,21 @@ class CopilotPlugin extends Plugin {
 
                 // No function call → return text
                 const text = parts.map(p => p.text || '').join('').trim();
-                if (text) return text;
+                if (text) return { text, toolCalls };
 
                 // If we have accumulated tool errors but no text response
                 if (toolErrors.length > 0) {
-                    return `I encountered some issues with the tools (${toolErrors.join('; ')}), but I'm here to help. Could you please rephrase your request or ask me to proceed without using those specific tools?`;
+                    return { text: `I encountered some issues with the tools (${toolErrors.join('; ')}), but I'm here to help. Could you please rephrase your request or ask me to proceed without using those specific tools?`, toolCalls };
                 }
 
                 // Fallback: return raw parts if no text
-                return JSON.stringify(parts);
+                return { text: JSON.stringify(parts), toolCalls };
             } catch (error) {
                 if (error.name === 'AbortError') throw new Error('Generation stopped by user');
 
                 // If we have tool errors and encounter an API error, provide a helpful message
                 if (toolErrors.length > 0) {
-                    return `I encountered issues with some tools and the API. Here's what went wrong: ${toolErrors.join('; ')}. Please try rephrasing your request or asking me to help without using those specific tools.`;
+                    return { text: `I encountered issues with some tools and the API. Here's what went wrong: ${toolErrors.join('; ')}. Please try rephrasing your request or asking me to help without using those specific tools.`, toolCalls };
                 }
 
                 console.error('Gemini API (tools) error:', error);
@@ -718,7 +721,7 @@ class CopilotPlugin extends Plugin {
 
         // If we've exhausted iterations and have tool errors
         if (toolErrors.length > 0) {
-            return `I encountered repeated issues with tools after multiple attempts: ${toolErrors.join('; ')}. Please try a different approach or ask me to help without using those specific tools.`;
+            return { text: `I encountered repeated issues with tools after multiple attempts: ${toolErrors.join('; ')}. Please try a different approach or ask me to help without using those specific tools.`, toolCalls };
         }
 
         throw new Error('Exceeded max tool-calling iterations');
@@ -1486,9 +1489,9 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
                     prompt = await this.plugin.processPrompt(command.prompt, textToProcess, activeView);
 
                     // One-shot command: no multi-turn history for /commands
-                    const response = await this.plugin.callGeminiWithTools(prompt, undefined, this.abortController.signal);
+                    const { text: response, toolCalls } = await this.plugin.callGeminiWithTools(prompt, undefined, this.abortController.signal);
                     loadingEl.remove();
-                    this.addMessage('assistant', response);
+                    this.addMessage('assistant', response, false, true, toolCalls);
                     this.updateUsageDisplay();
                     await this.saveCurrentSession();
                     return;
@@ -1514,10 +1517,10 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
                 parts: [{ text: m.content }]
             }));
 
-            const response = await this.plugin.callGeminiWithTools(contents, undefined, this.abortController.signal);
+            const { text: response, toolCalls } = await this.plugin.callGeminiWithTools(contents, undefined, this.abortController.signal);
             // Remove loading and add response
             loadingEl.remove();
-            this.addMessage('assistant', response);
+            this.addMessage('assistant', response, false, true, toolCalls);
 
             // Update usage display after API call
             this.updateUsageDisplay();
@@ -1588,7 +1591,7 @@ Consider the conversation history when determining your action and response.`;
         const fileContent = await this.app.vault.read(this.paperDocFile);
         const history = this.getRelevantHistory();
         const prompt = this.buildDocPrompt(fileContent, message, history);
-        const rawResponse = await this.plugin.callGeminiWithTools(prompt, undefined, this.abortController.signal);
+        const { text: rawResponse } = await this.plugin.callGeminiWithTools(prompt, undefined, this.abortController.signal);
         const { action, content } = this.parseAIResponse(rawResponse);
 
         loadingEl.remove();
@@ -1631,14 +1634,15 @@ Consider the conversation history when determining your action and response.`;
         new Notice('Generation stopped');
     }
 
-    addMessage(type, content, isLoading = false, saveToMessages = true) {
+    addMessage(type, content, isLoading = false, saveToMessages = true, toolCalls = []) {
         const messageEl = this.chatContainer.createDiv(`copilot-message ${type}`);
 
         if (saveToMessages && !isLoading) {
             this.messages.push({
                 type: type,
                 content: content,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                toolCalls: toolCalls
             });
         }
 
@@ -1651,6 +1655,22 @@ Consider the conversation history when determining your action and response.`;
             </div>
         `;
             return messageEl;
+        }
+
+        if (toolCalls && toolCalls.length > 0) {
+            const details = messageEl.createEl('details');
+            const summary = details.createEl('summary');
+            summary.setText('Show Code');
+            details.addEventListener('toggle', () => {
+                summary.setText(details.open ? 'Hide Code' : 'Show Code');
+            });
+            const codeBlock = details.createEl('pre');
+            const code = codeBlock.createEl('code');
+            code.setText(JSON.stringify(toolCalls.map(tc => ({
+                tool: tc.name,
+                arguments: tc.args,
+                result: tc.response
+            })), null, 2));
         }
 
         const messageContentEl = messageEl.createDiv({ cls: 'copilot-message-content' });
