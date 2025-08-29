@@ -1657,7 +1657,8 @@ Consider the conversation history when determining your action and response.`;
             return messageEl;
         }
 
-        if (toolCalls && toolCalls.length > 0) {
+        const jsToolCalls = toolCalls.filter(tc => tc.name === 'run_js');
+        if (jsToolCalls.length > 0) {
             const details = messageEl.createEl('details');
             const summary = details.createEl('summary');
             summary.setText('Show Code');
@@ -1666,11 +1667,8 @@ Consider the conversation history when determining your action and response.`;
             });
             const codeBlock = details.createEl('pre');
             const code = codeBlock.createEl('code');
-            code.setText(JSON.stringify(toolCalls.map(tc => ({
-                tool: tc.name,
-                arguments: tc.args,
-                result: tc.response
-            })), null, 2));
+            code.setText(jsToolCalls.map(tc => `// Tool: ${tc.name}
+${tc.args.code}`).join('\n\n'));
         }
 
         const messageContentEl = messageEl.createDiv({ cls: 'copilot-message-content' });
