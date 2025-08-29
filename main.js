@@ -11,18 +11,242 @@ const {
     requestUrl,
     EditorSuggest,
     MarkdownRenderer,
-    SuggestModal
+    SuggestModal,
 } = require('obsidian');
-
+const vm = require('vm');
 const COPILOT_VIEW_TYPE = 'copilot-chat-view';
 const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+class SafeJSRunner {
+    constructor(options = {}) {
+        this.syncTimeoutMs = options.syncTimeoutMs ?? 1200;
+        this.asyncTimeoutMs = options.asyncTimeoutMs ?? 2500;
+    }
+    async run(code, input) {
+        const logs = [];
+        const sandbox = {
+            console: {
+                log: (...args) =>
+                    logs.push(args.map(a => (typeof a === 'string' ? a : JSON.stringify(a))).join(' '))
+            },
+            Math, JSON, Date, Number, String, Boolean, Array, Object, Set, Map,
+            input
+        };
+        const context = vm.createContext(sandbox, { name: 'copilot-js-sandbox' });
+        const wrapped = `(async () => { ${code} })()`;
 
+        let resultPromise;
+        try {
+            const script = new vm.Script(wrapped, { filename: 'user-code.js' });
+            const maybePromise = script.runInContext(context, { timeout: this.syncTimeoutMs });
+            resultPromise = Promise.resolve(maybePromise);
+        } catch (err) {
+            return { ok: false, error: String(err.message || err), stdout: logs.join('\n') };
+        }
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Execution timed out')), this.asyncTimeoutMs)
+        );
+
+        try {
+            const result = await Promise.race([resultPromise, timeoutPromise]);
+            return { ok: true, result, stdout: logs.join('\n') };
+        } catch (err) {
+            return { ok: false, error: String(err.message || err), stdout: logs.join('\n') };
+        }
+    }
+}
+
+class ToolRegistry {
+    constructor(plugin) {
+        this.plugin = plugin;
+        this.tools = new Map();
+        this.jsRunner = new SafeJSRunner({ syncTimeoutMs: 1200, asyncTimeoutMs: 2500 });
+        this.registerDefaultTools();
+    }
+
+    registerTool(def) { this.tools.set(def.name, def); }
+    has(name) { return this.tools.has(name); }
+    async execute(name, args) {
+        const def = this.tools.get(name);
+        if (!def) throw new Error(`Unknown tool: ${name}`);
+        return await def.handler(args ?? {}, this.plugin);
+    }
+
+    getDeclarations(names) {
+        const out = [];
+        for (const [n, def] of this.tools.entries()) {
+            if (!names || names.includes(n)) {
+                out.push({
+                    name: def.name,
+                    description: def.description || '',
+                    parameters: def.parameters || { type: 'object', properties: {} }
+                });
+            }
+        }
+        return out;
+    }
+
+    registerDefaultTools() {
+        // math_eval
+        this.registerTool({
+            name: 'math_eval',
+            description: 'Evaluate a simple arithmetic expression. Allowed: numbers, + - * / % ^ parentheses, decimals, spaces.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    expression: { type: 'string', description: 'e.g., (2+3)*4/5' }
+                },
+                required: ['expression']
+            },
+            handler: async ({ expression }) => {
+                const expr = String(expression || '').trim();
+                if (!/^[0-9+\-*/%^().\s]+$/.test(expr)) {
+                    return { ok: false, error: 'Expression contains unsupported characters' };
+                }
+                try {
+                    const res = new Function(`return (${expr});`)();
+                    return { ok: true, result: res };
+                } catch (e) {
+                    return { ok: false, error: String(e.message || e) };
+                }
+            }
+        });
+
+        // run_js
+        this.registerTool({
+            name: 'run_js',
+            description: 'Execute short JavaScript in a sandbox. The code runs inside an async function; return a value. Use the "input" variable for input.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    code: { type: 'string', description: 'JavaScript code to execute' },
+                    input: { description: 'Optional input value exposed as "input"' }
+                },
+                required: ['code']
+            },
+            handler: async ({ code, input }) => {
+                if (typeof code !== 'string' || code.length > 4000) {
+                    return { ok: false, error: 'Code is missing or too long' };
+                }
+                if (/\b(require|process|global|Function|eval|import\s*KATEX_INLINE_OPEN)/.test(code)) {
+                    return { ok: false, error: 'Disallowed token in code' };
+                }
+                return await this.jsRunner.run(code, input);
+            }
+        });
+
+        // http_fetch via Obsidian requestUrl
+        this.registerTool({
+            name: 'http_fetch',
+            description: 'HTTP fetch via Obsidian. Use for simple GET/POST; returns status, headers, and text/JSON.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    url: { type: 'string', description: 'Absolute URL' },
+                    method: { type: 'string', description: 'GET or POST', enum: ['GET', 'POST'] },
+                    headers: { type: 'object', description: 'Headers object' },
+                    body: { description: 'Optional string body' }
+                },
+                required: ['url']
+            },
+            handler: async ({ url, method = 'GET', headers = {}, body }, plugin) => {
+                try {
+                    const res = await requestUrl({ url, method, headers, body });
+                    let data = res.text;
+                    try {
+                        if (res.headers['content-type']?.includes('application/json')) {
+                            data = JSON.parse(res.text);
+                        }
+                    } catch (_) { }
+                    return { ok: true, result: { status: res.status, headers: res.headers, data } };
+                } catch (e) {
+                    return { ok: false, error: String(e.message || e) };
+                }
+            }
+        });
+
+        // vault_list
+        this.registerTool({
+            name: 'vault_list',
+            description: 'List markdown files in the vault, optionally filtered by a query.',
+            parameters: {
+                type: 'object',
+                properties: { query: { type: 'string', description: 'Filter by basename/path (case-insensitive)' } }
+            },
+            handler: async ({ query = '' }, plugin) => {
+                const files = plugin.app.vault.getMarkdownFiles();
+                const q = String(query || '').toLowerCase();
+                const matches = files
+                    .filter(f => !q || f.basename.toLowerCase().includes(q) || f.path.toLowerCase().includes(q))
+                    .map(f => ({ basename: f.basename, path: f.path }));
+                return { ok: true, result: matches };
+            }
+        });
+
+        // vault_read
+        this.registerTool({
+            name: 'vault_read',
+            description: 'Read the content of a markdown file by exact basename or full path.',
+            parameters: {
+                type: 'object',
+                properties: { nameOrPath: { type: 'string', description: 'Basename (no .md) or full path' } },
+                required: ['nameOrPath']
+            },
+            handler: async ({ nameOrPath }, plugin) => {
+                const files = plugin.app.vault.getMarkdownFiles();
+                const needle = String(nameOrPath || '').toLowerCase().replace(/\.md$/i, '');
+                const file = files.find(f =>
+                    f.basename.toLowerCase() === needle ||
+                    f.path.toLowerCase() === (needle + '.md') ||
+                    f.path.toLowerCase() === String(nameOrPath).toLowerCase()
+                );
+                if (!file) return { ok: false, error: 'File not found' };
+                try {
+                    const content = await plugin.app.vault.read(file);
+                    return { ok: true, result: { path: file.path, content } };
+                } catch (e) {
+                    return { ok: false, error: String(e.message || e) };
+                }
+            }
+        });
+
+        // vault_write
+        this.registerTool({
+            name: 'vault_write',
+            description: 'Write to a markdown file by path. mode="replace" to overwrite, mode="append" to append.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    path: { type: 'string', description: 'Full path to .md file' },
+                    content: { type: 'string', description: 'Content to write' },
+                    mode: { type: 'string', enum: ['replace', 'append'], description: 'Write mode' }
+                },
+                required: ['path', 'content']
+            },
+            handler: async ({ path, content, mode = 'append' }, plugin) => {
+                try {
+                    const file = plugin.app.vault.getAbstractFileByPath(path);
+                    if (!file) return { ok: false, error: 'File not found: ' + path };
+                    if (mode === 'replace') {
+                        await plugin.app.vault.modify(file, content);
+                        return { ok: true, result: { path, mode: 'replace', bytes: content.length } };
+                    } else {
+                        await plugin.app.vault.append(file, content);
+                        return { ok: true, result: { path, mode: 'append', bytes: content.length } };
+                    }
+                } catch (e) {
+                    return { ok: false, error: String(e.message || e) };
+                }
+            }
+        });
+    }
+}
 // ===== MAIN PLUGIN CLASS =====
 class CopilotPlugin extends Plugin {
     async onload() {
         await this.loadSettings();
         await this.initializeUsageTracking();
-
+        this.tools = new ToolRegistry(this);
         // Register the sidebar view
         this.registerView(COPILOT_VIEW_TYPE, (leaf) => new CopilotChatView(leaf, this));
 
@@ -228,7 +452,7 @@ class CopilotPlugin extends Plugin {
 
         try {
             const prompt = await this.processPrompt(command.prompt, selection, view);
-            const response = await this.callGeminiAPI(prompt);
+            const response = await this.callGeminiWithTools(prompt);
 
             // Update usage in chat view
             const chatViews = this.app.workspace.getLeavesOfType(COPILOT_VIEW_TYPE);
@@ -329,6 +553,101 @@ class CopilotPlugin extends Plugin {
         }
     }
 
+    async callGeminiWithTools(input, toolNames, abortSignal) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${this.settings.apiKey}`;
+
+        let contents = Array.isArray(input)
+            ? input
+            : [{ role: 'user', parts: [{ text: input }] }];
+
+        const toolDecls = this.tools?.getDeclarations(toolNames) || [];
+        const maxIters = 6;
+
+        for (let iter = 0; iter < maxIters; iter++) {
+            const requestBody = {
+                contents,
+                ...(toolDecls.length ? { tools: [{ function_declarations: toolDecls }] } : {}),
+                ...(this.settings.systemPrompt
+                    ? { system_instruction: { parts: [{ text: this.settings.systemPrompt }] } }
+                    : {})
+            };
+
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                    signal: abortSignal
+                });
+                const json = await res.json().catch(() => null);
+
+                if (res.status === 401 || res.status === 403) {
+                    this.settings.apiVerified = false;
+                    await this.saveSettings();
+                    const msg = json?.error?.message || `API key invalid or unauthorized (status ${res.status})`;
+                    throw new Error(msg);
+                }
+                if (!res.ok) {
+                    const msg = json?.error?.message || `HTTP ${res.status}`;
+                    throw new Error(msg);
+                }
+
+                const candidate = json?.candidates?.[0];
+                const parts = candidate?.content?.parts || [];
+
+                // usage estimate
+                const textAccum = parts.map(p => p.text || '').join('');
+                const estimatedTokens = Math.ceil((JSON.stringify(requestBody).length + textAccum.length) / 4);
+                await this.trackUsage(this.settings.selectedModel, estimatedTokens);
+
+                // If the model requested a function call
+                const fcPart = parts.find(p => p.functionCall);
+                if (fcPart && toolDecls.length) {
+                    const call = fcPart.functionCall;
+                    const name = call?.name;
+                    const argsRaw = call?.args ?? call?.arguments ?? {};
+                    let args = argsRaw;
+                    if (typeof argsRaw === 'string') {
+                        try { args = JSON.parse(argsRaw); } catch { args = { value: argsRaw }; }
+                    }
+
+                    let toolResponse;
+                    try {
+                        if (!this.tools?.has(name)) {
+                            toolResponse = { ok: false, error: `Tool not registered: ${name}` };
+                        } else {
+                            toolResponse = await this.tools.execute(name, args);
+                        }
+                    } catch (e) {
+                        toolResponse = { ok: false, error: String(e.message || e) };
+                    }
+
+                    // Extend conversation with model's call and our function response
+                    contents = [
+                        ...contents,
+                        { role: 'model', parts },
+                        {
+                            role: 'function',
+                            parts: [{ functionResponse: { name, response: toolResponse } }]
+                        }
+                    ];
+                    continue; // continue loop for next model turn
+                }
+
+                // No function call → return text
+                const text = parts.map(p => p.text || '').join('').trim();
+                if (text) return text;
+
+                // Fallback: return raw parts if no text
+                return JSON.stringify(parts);
+            } catch (error) {
+                if (error.name === 'AbortError') throw new Error('Generation stopped by user');
+                console.error('Gemini API (tools) error:', error);
+                throw error;
+            }
+        }
+        throw new Error('Exceeded max tool-calling iterations');
+    }
     async verifyAPIKey(apiKey) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
 
@@ -916,6 +1235,24 @@ class CopilotChatView extends ItemView {
 
     async sendMessage() {
         const message = this.inputEl.value.trim();
+        // Quick local answer for simple arithmetic (no API needed)
+        const simpleExpr = message.replace(/,/g, '').trim();
+        if (/^[0-9+\-*/%^().\s]+$/.test(simpleExpr) && /[+\-*/%^]/.test(simpleExpr)) {
+            try {
+                // safe: only numbers/operators allowed by regex above
+                const quickVal = new Function(`return (${simpleExpr});`)();
+                if (typeof quickVal === 'number' && Number.isFinite(quickVal)) {
+                    // Remove welcome, add user/assistant messages, then return
+                    this.chatContainer.querySelector('.copilot-welcome')?.remove();
+                    this.addMessage('user', message);
+                    this.inputEl.value = '';
+                    this.inputEl.style.height = 'auto';
+                    this.addMessage('assistant', String(quickVal));
+                    await this.saveCurrentSession();
+                    return;
+                }
+            } catch (_) { }
+        }
         if (!message) return;
 
         // /paper command handler (logging + doc ops setup)
@@ -1004,8 +1341,8 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
 
         this.promptHistory.push(message);
         this.promptHistoryIndex = this.promptHistory.length;
-        
-        
+
+
 
 
         if (!this.plugin.settings.apiKey || !this.plugin.settings.apiVerified) {
@@ -1074,8 +1411,7 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
                     prompt = await this.plugin.processPrompt(command.prompt, textToProcess, activeView);
 
                     // One-shot command: no multi-turn history for /commands
-                    const response = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
-
+                    const response = await this.plugin.callGeminiWithTools(prompt, undefined, this.abortController.signal);
                     loadingEl.remove();
                     this.addMessage('assistant', response);
                     this.updateUsageDisplay();
@@ -1103,8 +1439,7 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
                 parts: [{ text: m.content }]
             }));
 
-            const response = await this.plugin.callGeminiAPI(contents, this.abortController.signal);
-
+            const response = await this.plugin.callGeminiWithTools(contents, undefined, this.abortController.signal);
             // Remove loading and add response
             loadingEl.remove();
             this.addMessage('assistant', response);
@@ -1178,8 +1513,7 @@ Consider the conversation history when determining your action and response.`;
         const fileContent = await this.app.vault.read(this.paperDocFile);
         const history = this.getRelevantHistory();
         const prompt = this.buildDocPrompt(fileContent, message, history);
-        const rawResponse = await this.plugin.callGeminiAPI(prompt, this.abortController.signal);
-
+        const rawResponse = await this.plugin.callGeminiWithTools(prompt, undefined, this.abortController.signal);
         const { action, content } = this.parseAIResponse(rawResponse);
 
         loadingEl.remove();
