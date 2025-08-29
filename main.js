@@ -562,6 +562,7 @@ class CopilotPlugin extends Plugin {
 
         const toolDecls = this.tools?.getDeclarations(toolNames) || [];
         const maxIters = 6;
+        let toolErrors = []; // Track tool errors for potential fallback message
 
         for (let iter = 0; iter < maxIters; iter++) {
             const requestBody = {
@@ -612,14 +613,68 @@ class CopilotPlugin extends Plugin {
                     }
 
                     let toolResponse;
+                    let toolFailed = false;
+
                     try {
                         if (!this.tools?.has(name)) {
                             toolResponse = { ok: false, error: `Tool not registered: ${name}` };
+                            toolFailed = true;
+                            toolErrors.push(`Tool "${name}" is not available`);
                         } else {
                             toolResponse = await this.tools.execute(name, args);
+                            if (!toolResponse.ok) {
+                                toolFailed = true;
+                                toolErrors.push(`Tool "${name}" failed: ${toolResponse.error}`);
+                            }
                         }
                     } catch (e) {
                         toolResponse = { ok: false, error: String(e.message || e) };
+                        toolFailed = true;
+                        toolErrors.push(`Tool "${name}" error: ${e.message}`);
+                    }
+
+                    // If this is the last iteration and we have tool failures, 
+                    // ask the model to continue without the tool
+                    if (toolFailed && iter === maxIters - 1) {
+                        const fallbackPrompt = `The requested tool operation failed. Please provide a helpful response without using tools. Previous errors: ${toolErrors.join('; ')}`;
+                        contents = [
+                            ...contents,
+                            { role: 'model', parts },
+                            {
+                                role: 'user',
+                                parts: [{ text: fallbackPrompt }]
+                            }
+                        ];
+
+                        // Make one final call without tools
+                        const fallbackRequestBody = {
+                            contents,
+                            ...(this.settings.systemPrompt
+                                ? { system_instruction: { parts: [{ text: this.settings.systemPrompt }] } }
+                                : {})
+                        };
+
+                        try {
+                            const fallbackRes = await fetch(url, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(fallbackRequestBody),
+                                signal: abortSignal
+                            });
+                            const fallbackJson = await fallbackRes.json();
+                            const fallbackParts = fallbackJson?.candidates?.[0]?.content?.parts || [];
+                            const fallbackText = fallbackParts.map(p => p.text || '').join('').trim();
+
+                            if (fallbackText) {
+                                // Add a note about the tool failure if not already mentioned
+                                if (!fallbackText.toLowerCase().includes('tool') && !fallbackText.toLowerCase().includes('error')) {
+                                    return `I encountered an issue with some tools, but here's what I can help you with:\n\n${fallbackText}`;
+                                }
+                                return fallbackText;
+                            }
+                        } catch (fallbackError) {
+                            console.error('Fallback request failed:', fallbackError);
+                        }
                     }
 
                     // Extend conversation with model's call and our function response
@@ -631,21 +686,41 @@ class CopilotPlugin extends Plugin {
                             parts: [{ functionResponse: { name, response: toolResponse } }]
                         }
                     ];
-                    continue; // continue loop for next model turn
+
+                    // If tool failed but we're not at the last iteration, continue
+                    // The model might try a different approach
+                    continue;
                 }
 
                 // No function call → return text
                 const text = parts.map(p => p.text || '').join('').trim();
                 if (text) return text;
 
+                // If we have accumulated tool errors but no text response
+                if (toolErrors.length > 0) {
+                    return `I encountered some issues with the tools (${toolErrors.join('; ')}), but I'm here to help. Could you please rephrase your request or ask me to proceed without using those specific tools?`;
+                }
+
                 // Fallback: return raw parts if no text
                 return JSON.stringify(parts);
             } catch (error) {
                 if (error.name === 'AbortError') throw new Error('Generation stopped by user');
+
+                // If we have tool errors and encounter an API error, provide a helpful message
+                if (toolErrors.length > 0) {
+                    return `I encountered issues with some tools and the API. Here's what went wrong: ${toolErrors.join('; ')}. Please try rephrasing your request or asking me to help without using those specific tools.`;
+                }
+
                 console.error('Gemini API (tools) error:', error);
                 throw error;
             }
         }
+
+        // If we've exhausted iterations and have tool errors
+        if (toolErrors.length > 0) {
+            return `I encountered repeated issues with tools after multiple attempts: ${toolErrors.join('; ')}. Please try a different approach or ask me to help without using those specific tools.`;
+        }
+
         throw new Error('Exceeded max tool-calling iterations');
     }
     async verifyAPIKey(apiKey) {
