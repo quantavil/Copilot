@@ -18,8 +18,8 @@ const COPILOT_VIEW_TYPE = 'copilot-chat-view';
 const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 class SafeJSRunner {
     constructor(options = {}) {
-        this.syncTimeoutMs = options.syncTimeoutMs ?? 1200;
-        this.asyncTimeoutMs = options.asyncTimeoutMs ?? 2500;
+        this.syncTimeoutMs = options.syncTimeoutMs ?? 2000;
+        this.asyncTimeoutMs = options.asyncTimeoutMs ?? 3000;
     }
     async run(code, input) {
         const logs = [];
@@ -60,7 +60,7 @@ class ToolRegistry {
     constructor(plugin) {
         this.plugin = plugin;
         this.tools = new Map();
-        this.jsRunner = new SafeJSRunner({ syncTimeoutMs: 1200, asyncTimeoutMs: 2500 });
+        this.jsRunner = new SafeJSRunner({ syncTimeoutMs: 2000, asyncTimeoutMs: 3000 });
         this.registerDefaultTools();
     }
 

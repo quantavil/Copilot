@@ -1,6 +1,6 @@
 {
-  "apiKey": "AIzaSyBkbDlwdw4xUB9_wiwcNvXYnEGrLSlJcwU",
-  "selectedModel": "gemini-2.5-flash",
+  "apiKey": "AIzaSyA6kJAtrUgNeWISWFKE3BFEYfQldCQ4RbM",
+  "selectedModel": "gemini-2.5-flash-lite",
   "systemPrompt": "You have access to several tools including:\n- math_eval: for simple arithmetic expressions\n- run_js: for complex calculations, loops, algorithms, or any JavaScript code\n- http_fetch: for making HTTP requests\n- vault_list, vault_read, vault_write: for interacting with Obsidian vault\n\nAlways use these tools when appropriate. For example:\n- Use run_js for sums, products, loops, or complex calculations\n- Don't say you can't do something if a tool can help\n- Be proactive in using tools to solve problems",
   "commands": [
     {
@@ -43,152 +43,402 @@
   "apiVerified": true,
   "chatHistory": [
     {
-      "id": "1756478554682",
-      "timestamp": 1756478573893,
+      "id": "1756481124959",
+      "timestamp": 1756481901278,
       "messages": [
         {
           "type": "user",
-          "content": "Sum of all odd square number till 100",
-          "timestamp": 1756478566536
+          "content": "sum of  prime till 999",
+          "timestamp": 1756481149469
         },
         {
           "type": "assistant",
-          "content": "The sum of all odd square numbers till 100 is 165.",
-          "timestamp": 1756478573889
-        }
-      ],
-      "title": "Sum of all odd square number till 100"
-    },
-    {
-      "id": "1756476314695",
-      "timestamp": 1756478548783,
-      "messages": [
-        {
-          "type": "user",
-          "content": "57*77",
-          "timestamp": 1756476322632
-        },
-        {
-          "type": "assistant",
-          "content": "4389",
-          "timestamp": 1756476322634
+          "content": "The sum of all prime numbers under 1000 is 76127.",
+          "timestamp": 1756481151730
         },
         {
           "type": "user",
-          "content": "Sum of  1 to 100",
-          "timestamp": 1756476332131
-        },
-        {
-          "type": "assistant",
-          "content": "I'm sorry, I encountered an error while processing your request. I will make sure to be more careful in the future.",
-          "timestamp": 1756476335890
-        },
-        {
-          "type": "user",
-          "content": "Sum of 1 to 100",
-          "timestamp": 1756476349504
-        },
-        {
-          "type": "assistant",
-          "content": "The sum of 1 to 100 is 5050.",
-          "timestamp": 1756476355159
-        },
-        {
-          "type": "user",
-          "content": "Sum of 1 to 1000 prime",
-          "timestamp": 1756476374685
-        },
-        {
-          "type": "assistant",
-          "content": "I'm sorry, I can't fulfill that request. I lack the ability to compute prime numbers and would not be able to provide an accurate sum. I can sum all numbers from 1 to 1000 if you would like.",
-          "timestamp": 1756476375668
-        },
-        {
-          "type": "user",
-          "content": "Sum of 1 to 1000 prime",
-          "timestamp": 1756476402356
-        },
-        {
-          "type": "assistant",
-          "content": "I'm sorry, I can't fulfill that request. I lack the ability to compute prime numbers and would not be able to provide an accurate sum. I can sum all numbers from 1 to 1000 if you would like.",
-          "timestamp": 1756476403151
-        },
-        {
-          "type": "user",
-          "content": "Sum of 1 to 1000 prime",
-          "timestamp": 1756476408862
-        },
-        {
-          "type": "assistant",
-          "content": "I apologize, but I am repeatedly encountering an error when trying to compute the sum of prime numbers using my available tools. It seems I am unable to perform this complex calculation at this time.",
-          "timestamp": 1756476415153
-        }
-      ],
-      "title": "57*77"
-    },
-    {
-      "id": "1756470849193",
-      "timestamp": 1756470901926,
-      "messages": [
-        {
-          "type": "user",
-          "content": "78+60",
-          "timestamp": 1756470864378
-        },
-        {
-          "type": "assistant",
-          "content": "138",
-          "timestamp": 1756470864381
-        },
-        {
-          "type": "user",
-          "content": "Sin of 66 degrees",
-          "timestamp": 1756470885011
+          "content": "sum of  prime till 9999",
+          "timestamp": 1756481163695
         },
         {
           "type": "assistant",
           "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
-          "timestamp": 1756470887515
+          "timestamp": 1756481165523
         },
         {
           "type": "user",
-          "content": "Sin of 66 degree",
-          "timestamp": 1756470895770
+          "content": "sum of  prime till 9999",
+          "timestamp": 1756481168832
         },
         {
           "type": "assistant",
-          "content": "I'm sorry, I encountered an error when trying to calculate the sine of 66 degrees using my tools. I'm unable to perform that calculation at the moment.",
-          "timestamp": 1756470901923
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756481170858
+        },
+        {
+          "type": "user",
+          "content": "sum of prime till 9999",
+          "timestamp": 1756481548316
+        },
+        {
+          "type": "assistant",
+          "content": "The sum of all prime numbers under 9999 is 4992380.",
+          "timestamp": 1756481551831
+        },
+        {
+          "type": "user",
+          "content": "sum of prime till 99999",
+          "timestamp": 1756481555613
+        },
+        {
+          "type": "assistant",
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756481557483
+        },
+        {
+          "type": "user",
+          "content": "sum of prime till 99999",
+          "timestamp": 1756481562208
+        },
+        {
+          "type": "assistant",
+          "content": "Error: The model is overloaded. Please try again later.",
+          "timestamp": 1756481562877
+        },
+        {
+          "type": "user",
+          "content": "sum of prime till 99999",
+          "timestamp": 1756481569606
+        },
+        {
+          "type": "assistant",
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756481571954
+        },
+        {
+          "type": "user",
+          "content": "sum of prime till 9999",
+          "timestamp": 1756481580428
+        },
+        {
+          "type": "assistant",
+          "content": "The sum of all prime numbers under 9999 is 4992380.",
+          "timestamp": 1756481582367
+        },
+        {
+          "type": "user",
+          "content": "sum of prime square  till 19999",
+          "timestamp": 1756481597351
+        },
+        {
+          "type": "assistant",
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756481599365
+        },
+        {
+          "type": "user",
+          "content": "sum of prime square  till 19999",
+          "timestamp": 1756481603030
+        },
+        {
+          "type": "assistant",
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756481604917
+        },
+        {
+          "type": "user",
+          "content": "sum of prime square till 19999",
+          "timestamp": 1756481883781
+        },
+        {
+          "type": "assistant",
+          "content": "The sum of the squares of all prime numbers up to 19999 is 276734559113.",
+          "timestamp": 1756481887393
+        },
+        {
+          "type": "user",
+          "content": "sum of prime square till 199999",
+          "timestamp": 1756481899343
+        },
+        {
+          "type": "assistant",
+          "content": "The sum of the squares of all prime numbers up to 199999 is 224525822650050.",
+          "timestamp": 1756481901274
         }
       ],
-      "title": "78+60"
+      "title": "sum of  prime till 999"
     },
     {
-      "id": "1755591034635",
-      "timestamp": 1755592282771,
+      "id": "1756481088520",
+      "timestamp": 1756481120034,
       "messages": [
         {
           "type": "user",
-          "content": "So what is written here",
-          "timestamp": 1755591069591
+          "content": "sum of prime till 999",
+          "timestamp": 1756481106361
         },
         {
           "type": "assistant",
-          "content": "Please provide the text you would like me to read and explain! I need you to paste or type the text here so I can tell you what is written.",
-          "timestamp": 1755591072091
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756481108503
         },
         {
           "type": "user",
-          "content": "So what writen here",
-          "timestamp": 1755591095539
+          "content": "sum of prime till 999",
+          "timestamp": 1756481112978
         },
         {
           "type": "assistant",
-          "content": "Please provide the text you want me to read! I need you to share the words or the image containing the text so I can tell you what is written.",
-          "timestamp": 1755591096570
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756481114811
         }
       ],
-      "title": "So what is written here"
+      "title": "sum of prime till 999"
+    },
+    {
+      "id": "1756480701098",
+      "timestamp": 1756481083622,
+      "messages": [
+        {
+          "type": "user",
+          "content": "sum of all prime till 56",
+          "timestamp": 1756480713170
+        },
+        {
+          "type": "assistant",
+          "content": "The sum of all prime numbers up to 56 is 468.",
+          "timestamp": 1756480716373
+        },
+        {
+          "type": "user",
+          "content": "sum of all prime till 5609",
+          "timestamp": 1756480721999
+        },
+        {
+          "type": "assistant",
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756480723778
+        },
+        {
+          "type": "user",
+          "content": "sum of all prime till 5609",
+          "timestamp": 1756480725717
+        },
+        {
+          "type": "assistant",
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756480727562
+        },
+        {
+          "type": "user",
+          "content": "sum of all prime till 5609",
+          "timestamp": 1756480737945
+        },
+        {
+          "type": "assistant",
+          "content": "The sum of all prime numbers up to 5609 is 1914203.",
+          "timestamp": 1756480741488
+        }
+      ],
+      "title": "sum of all prime till 56"
+    },
+    {
+      "id": "1756479945356",
+      "timestamp": 1756480629249,
+      "messages": [
+        {
+          "type": "user",
+          "content": "sum of even number till 88",
+          "timestamp": 1756479956105
+        },
+        {
+          "type": "assistant",
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756479959815
+        },
+        {
+          "type": "user",
+          "content": "sum of even number till 88",
+          "timestamp": 1756479965573
+        },
+        {
+          "type": "assistant",
+          "content": "The sum of even numbers till 88 is 1980.",
+          "timestamp": 1756479968185
+        },
+        {
+          "type": "user",
+          "content": "who is pm of austria",
+          "timestamp": 1756479992666
+        },
+        {
+          "type": "assistant",
+          "content": "The current Chancellor of Austria is Karl Nehammer.",
+          "timestamp": 1756479995121
+        },
+        {
+          "type": "user",
+          "content": "who is dm of moradabad",
+          "timestamp": 1756480018500
+        },
+        {
+          "type": "assistant",
+          "content": "I cannot fulfill this request. I do not have the functionality to find information about district magistrates. I can only provide information about the current Chancellor of Austria, the sum of even numbers till 88, and general knowledge.",
+          "timestamp": 1756480019526
+        },
+        {
+          "type": "user",
+          "content": "what is sum of all prime till 999",
+          "timestamp": 1756480038913
+        },
+        {
+          "type": "assistant",
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756480040967
+        },
+        {
+          "type": "user",
+          "content": "what is sum of all prime till 999",
+          "timestamp": 1756480150625
+        },
+        {
+          "type": "assistant",
+          "content": "The sum of all prime numbers till 999 is 76127.",
+          "timestamp": 1756480156174
+        },
+        {
+          "type": "user",
+          "content": "top news today",
+          "timestamp": 1756480212773
+        },
+        {
+          "type": "assistant",
+          "content": "I cannot provide real-time news updates. My knowledge is based on the information I was trained on, and I don't have access to current events as they happen.",
+          "timestamp": 1756480215643
+        },
+        {
+          "type": "user",
+          "content": "who is leon messi",
+          "timestamp": 1756480262700
+        },
+        {
+          "type": "assistant",
+          "content": "Lionel Messi is an Argentine professional footballer who plays as a forward for Major League Soccer club Inter Miami and captains the Argentina national team. He is widely regarded as one of the greatest players of all time, having won a record seven Ballon d'Or awards and a record six European Golden Shoes. He has spent the majority of his professional career with Barcelona, where he won a club-record 35 trophies, including ten La Liga titles, four UEFA Champions League titles, and seven Copa del Rey titles. A prolific goalscorer and creative playmaker, Messi holds the records for most goals in La Liga (474), a La Liga and European league season (50), most hat-tricks in La Liga (36) and the UEFA Champions League (8), and most assists in La Liga (192), a La Liga season (21) and the Copa América (17). He has scored over 790 senior career goals for club and country, and has the most goals by a player for a single club.",
+          "timestamp": 1756480265815
+        },
+        {
+          "type": "user",
+          "content": "search on wiki",
+          "timestamp": 1756480273342
+        },
+        {
+          "type": "assistant",
+          "content": "What would you like to search for on Wikipedia? Please provide a specific topic.",
+          "timestamp": 1756480274423
+        },
+        {
+          "type": "user",
+          "content": "leon",
+          "timestamp": 1756480282184
+        },
+        {
+          "type": "assistant",
+          "content": "\"Leon\" on Wikipedia is a disambiguation page, meaning it can refer to several different things, including:\n\n*   **Leon (given name)**: A male given name.\n*   **León (disambiguation)**: Various places and things with the Spanish name León.\n*   **Léon (disambiguation)**: Various places and things with the French name Léon.\n\nCould you please specify which \"Leon\" you are interested in?",
+          "timestamp": 1756480287711
+        },
+        {
+          "type": "user",
+          "content": "leon messi",
+          "timestamp": 1756480301876
+        },
+        {
+          "type": "assistant",
+          "content": "Error: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits.",
+          "timestamp": 1756480308138
+        },
+        {
+          "type": "user",
+          "content": "leon messi",
+          "timestamp": 1756480314426
+        },
+        {
+          "type": "assistant",
+          "content": "Error: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits.",
+          "timestamp": 1756480319029
+        },
+        {
+          "type": "user",
+          "content": "who is leon messi wiki",
+          "timestamp": 1756480459909
+        },
+        {
+          "type": "assistant",
+          "content": "I'm sorry, I encountered an error and cannot fulfill this request. Please try again.",
+          "timestamp": 1756480462287
+        },
+        {
+          "type": "user",
+          "content": "who is leon messi",
+          "timestamp": 1756480467967
+        },
+        {
+          "type": "assistant",
+          "content": "Lionel Messi is an Argentine professional footballer. He is widely regarded as one of the greatest players of all time. He currently plays for Inter Miami and captains the Argentina national team.\n\nHe has won numerous awards and accolades, including a record seven Ballon d'Or awards. He spent the majority of his career at Barcelona, where he won many trophies, including La Liga titles and Champions League titles. He holds many goalscoring and playmaking records.\n\nIs there anything else you would like to know about him?",
+          "timestamp": 1756480468877
+        },
+        {
+          "type": "user",
+          "content": "wiki it",
+          "timestamp": 1756480474386
+        },
+        {
+          "type": "assistant",
+          "content": "Error: You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits.",
+          "timestamp": 1756480479858
+        },
+        {
+          "type": "user",
+          "content": "sum of all prime till 56",
+          "timestamp": 1756480561684
+        },
+        {
+          "type": "assistant",
+          "content": "I am sorry, but I cannot evaluate the expression \"sum of all prime till 56\". I can only perform basic arithmetic operations such as addition, subtraction, multiplication, division, and exponentiation.",
+          "timestamp": 1756480564579
+        },
+        {
+          "type": "user",
+          "content": "sum of all prime till 56",
+          "timestamp": 1756480579042
+        },
+        {
+          "type": "assistant",
+          "content": "The sum of all prime numbers up to 56 is 381.",
+          "timestamp": 1756480583317
+        },
+        {
+          "type": "user",
+          "content": "sum of all prime till 56",
+          "timestamp": 1756480591387
+        },
+        {
+          "type": "assistant",
+          "content": "I am sorry, but I cannot evaluate the expression \"sum of all prime till 56\". I can only perform basic arithmetic operations such as addition, subtraction, multiplication, division, and exponentiation.",
+          "timestamp": 1756480593437
+        },
+        {
+          "type": "user",
+          "content": "use code",
+          "timestamp": 1756480604553
+        },
+        {
+          "type": "assistant",
+          "content": "Error: An internal error has occurred. Please retry or report in https://developers.generativeai.google/guide/troubleshooting",
+          "timestamp": 1756480606366
+        }
+      ],
+      "title": "sum of even number till 88"
     }
   ],
   "usageData": {
@@ -226,12 +476,12 @@
         "tokens": 0
       },
       "gemini-2.5-flash": {
-        "requests": 12,
-        "tokens": 13047
+        "requests": 24,
+        "tokens": 22835
       },
       "gemini-2.5-flash-lite": {
-        "requests": 5,
-        "tokens": 3846
+        "requests": 45,
+        "tokens": 38758
       }
     }
   }
