@@ -975,10 +975,11 @@ button:focus-visible {
 }
 
 .copilot-message summary {
-    padding: 8px 12px;
+    padding: 4px 8px;
     cursor: pointer;
     background-color: var(--background-secondary-alt);
     font-weight: 500;
+    font-size: 12px;
 }
 
 .copilot-message details[open] summary {
