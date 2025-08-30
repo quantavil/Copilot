@@ -608,7 +608,7 @@ button {
 }
 
 .copilot-api-key-input {
-    max-width: 220px;
+    max-width: 400px;
     font-family: var(--font-monospace);
     letter-spacing: 0.02em;
 }
