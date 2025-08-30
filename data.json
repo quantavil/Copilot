@@ -1,7 +1,7 @@
 {
   "apiKey": "AIzaSyA6kJAtrUgNeWISWFKE3BFEYfQldCQ4RbM",
   "selectedModel": "gemini-2.5-flash",
-  "systemPrompt": "You have access to several tools including:\n- math_eval: for simple arithmetic expressions\n- run_js: for complex calculations, loops, algorithms, or any JavaScript code\n- http_fetch: for making HTTP requests\n- vault_list, vault_read, vault_write: for interacting with Obsidian vault\n\nAlways use these tools when appropriate. For example:\n- Use run_js for sums, products, loops, or complex calculations\n- Don't say you can't do something if a tool can help\n- Be proactive in using tools to solve problems",
+  "systemPrompt": "Use tools only if they add value or when direct answers aren’t feasible.\n- for simple math --> use math_eval supports (+, -, *, /, %, ^, log, factorial, avg, abs, round, ceil, floor, lcm, hcf,sin, cos, tan, asin, acos, atan) , constants (pi, e) \n- for complex problems or calculations -->  write the code to solve it and use run_js\n- for vault actions use: vault_*\n- Solve immediately; don’t explain tool use or ask permission.\n- If a tool is unavailable/fails, proceed without tools; do not ask for formulas/values unless truly missing.\n- Use LaTex for Math",
   "commands": [
     {
       "id": "custom-1755489454485",
@@ -90,12 +90,12 @@
         "tokens": 0
       },
       "gemini-2.5-flash": {
-        "requests": 10,
-        "tokens": 9379
+        "requests": 20,
+        "tokens": 26354
       },
       "gemini-2.5-flash-lite": {
-        "requests": 21,
-        "tokens": 20799
+        "requests": 37,
+        "tokens": 37186
       }
     }
   }
