@@ -229,6 +229,7 @@ button {
 }
 
 .copilot-code-block-wrapper pre,
+.copilot-message details pre,
 .copilot-message pre {
     margin: 0;
     padding: 12px;
@@ -238,6 +239,7 @@ button {
 }
 
 .copilot-code-block-wrapper code,
+.copilot-message details code,
 .copilot-message code {
     font-family: var(--font-monospace);
     font-size: 13px;
@@ -261,6 +263,11 @@ button {
     text-transform: lowercase;
 }
 
+.copilot-code-block-wrapper pre {
+    padding: 16px;
+}
+
+/* ===== Copy Button (Shared Styles) ===== */
 .copilot-copy-button {
     display: flex;
     align-items: center;
@@ -278,13 +285,10 @@ button {
     color: var(--text-normal);
 }
 
-.copilot-code-block-wrapper pre {
-    padding: 16px;
-}
-
 /* ===== Collapsible Code Block Specific ===== */
 .copilot-message details {
     margin-top: 10px;
+    position: relative;
 }
 
 .copilot-message summary {
@@ -297,6 +301,26 @@ button {
 
 .copilot-message details[open] summary {
     border-bottom: 1px solid var(--background-modifier-border);
+}
+
+/* Ensure proper styling for code blocks within details */
+.copilot-message details .markdown-preview-section pre {
+    margin: 0;
+    border-radius: 0;
+}
+
+/* Style copy button in collapsible code blocks */
+.copilot-message details .copilot-copy-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.copilot-message details:hover .copilot-copy-button {
+    opacity: 1;
 }
 
 /* ===== Input Area ===== */
@@ -773,7 +797,8 @@ button {
     margin: 16px 0;
 }
 
-.copilot-message-content .copy-code-button {
+/* Hide copy buttons in regular message content but not in collapsible code blocks */
+.copilot-message-content > .markdown-preview-section .copy-code-button {
     display: none;
 }
 

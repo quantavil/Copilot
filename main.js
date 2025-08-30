@@ -1644,10 +1644,37 @@ Consider the conversation history when determining your action and response.`;
             details.addEventListener('toggle', () => {
                 summary.setText(details.open ? 'Hide Code' : 'Show Code');
             });
-            const codeBlock = details.createEl('pre');
-            const code = codeBlock.createEl('code');
-            code.setText(jsToolCalls.map(tc => `// Tool: ${tc.name}
-${tc.args.code}`).join('\n\n'));
+            
+            // Create a container for the code content
+            const codeContainer = details.createDiv();
+            codeContainer.style.position = 'relative';
+            
+            // Format the code content as a markdown code block
+            const codeContent = jsToolCalls.map(tc => `\`\`\`javascript
+// Tool: ${tc.name}
+${tc.args.code}
+\`\`\``).join('\n\n');
+            
+            // Use Obsidian's MarkdownRenderer to properly render the code block with syntax highlighting
+            MarkdownRenderer.render(this.app, codeContent, codeContainer, '', this);
+            
+            // Add a copy button for the code content
+            const copyButton = codeContainer.createEl('button', {
+                cls: 'copilot-copy-button',
+                text: 'Copy'
+            });
+            copyButton.addEventListener('click', () => {
+                const codeText = jsToolCalls.map(tc => `// Tool: ${tc.name}\n${tc.args.code}`).join('\n\n');
+                navigator.clipboard.writeText(codeText);
+                new Notice('Copied to clipboard');
+                
+                // Visual feedback
+                const originalText = copyButton.textContent;
+                copyButton.setText('Copied!');
+                setTimeout(() => {
+                    copyButton.setText(originalText);
+                }, 2000);
+            });
         }
 
         const messageContentEl = messageEl.createDiv({ cls: 'copilot-message-content' });
