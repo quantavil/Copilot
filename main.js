@@ -97,11 +97,11 @@ class ToolRegistry {
         // math_eval
         this.registerTool({
             name: 'math_eval',
-            description: 'Evaluate a mathematical expression. Supports basic arithmetic (+, -, *, /, %, ^) and advanced functions: log(base, n), factorial(n), avg(...numbers), abs(n), round(n), ceil(n), floor(n), lcm(a, b), hcf(a, b).',
+            description: 'Evaluate a mathematical expression. Supports basic arithmetic (+, -, *, /, %, ^), trigonometric functions (sin, cos, tan, asin, acos, atan), constants (pi, e) and advanced functions: log(base, n), factorial(n), avg(...numbers), abs(n), round(n), ceil(n), floor(n), lcm(a, b), hcf(a, b). for complex math use or complex math,use run_js instead.',
             parameters: {
                 type: 'object',
                 properties: {
-                    expression: { type: 'string', description: 'e.g., log(2, 8), factorial(5), avg(1,2,3), abs(-5)' }
+                    expression: { type: 'string', description: 'e.g., log(2, 8), factorial(5), avg(1,2,3), abs(-5), sin(pi/2)' }
                 },
                 required: ['expression']
             },
@@ -140,6 +140,14 @@ class ToolRegistry {
                         floor: Math.floor,
                         lcm,
                         hcf,
+                        sin: Math.sin,
+                        cos: Math.cos,
+                        tan: Math.tan,
+                        asin: Math.asin,
+                        acos: Math.acos,
+                        atan: Math.atan,
+                        pi: Math.PI,
+                        e: Math.E,
                     };
 
                     // Treat ^ as exponent
