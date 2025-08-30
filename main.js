@@ -145,36 +145,6 @@ class ToolRegistry {
             }
         });
 
-        // http_fetch via Obsidian requestUrl
-        this.registerTool({
-            name: 'http_fetch',
-            description: 'HTTP fetch via Obsidian. Use for simple GET/POST; returns status, headers, and text/JSON.',
-            parameters: {
-                type: 'object',
-                properties: {
-                    url: { type: 'string', description: 'Absolute URL' },
-                    method: { type: 'string', description: 'GET or POST', enum: ['GET', 'POST'] },
-                    headers: { type: 'object', description: 'Headers object' },
-                    body: { description: 'Optional string body' }
-                },
-                required: ['url']
-            },
-            handler: async ({ url, method = 'GET', headers = {}, body }, plugin) => {
-                try {
-                    const res = await requestUrl({ url, method, headers, body });
-                    let data = res.text;
-                    try {
-                        if (res.headers['content-type']?.includes('application/json')) {
-                            data = JSON.parse(res.text);
-                        }
-                    } catch (_) { }
-                    return { ok: true, result: { status: res.status, headers: res.headers, data } };
-                } catch (e) {
-                    return { ok: false, error: String(e.message || e) };
-                }
-            }
-        });
-
         // vault_list
         this.registerTool({
             name: 'vault_list',
