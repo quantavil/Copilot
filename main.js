@@ -293,9 +293,8 @@ class CopilotPlugin extends Plugin {
         // Add settings tab
         this.addSettingTab(new CopilotSettingTab(this.app, this));
 
-        if (!this.settings.chatHistory) {
-            this.settings.chatHistory = [];
-        }
+        this.chatHistory = [];
+        this.loadHistory();
     }
 
     async loadSettings() {
@@ -307,7 +306,6 @@ class CopilotPlugin extends Plugin {
             commands: [],
             directReplace: false,
             apiVerified: false,
-            chatHistory: [],
             usageData: {}
         };
 
@@ -327,15 +325,42 @@ class CopilotPlugin extends Plugin {
             directReplace: cmd.directReplace !== undefined ? cmd.directReplace : this.settings.directReplace
         }));
 
-        if (!Array.isArray(this.settings.chatHistory)) {
-            this.settings.chatHistory = [];
-        }
+        
 
         await this.saveSettings();
     }
 
     async saveSettings() {
         await this.saveData(this.settings);
+    }
+
+    getHistoryFilePath() {
+        return this.app.vault.configDir + '/plugins/copilot/history.log';
+    }
+
+    async loadHistory() {
+        const path = this.getHistoryFilePath();
+        if (!await this.app.vault.adapter.exists(path)) {
+            this.chatHistory = [];
+            return;
+        }
+
+        const content = await this.app.vault.adapter.read(path);
+        const lines = content.split('\n').filter(line => line.trim() !== '');
+        this.chatHistory = lines.map(line => JSON.parse(line));
+    }
+
+    async appendHistory(session) {
+        const path = this.getHistoryFilePath();
+        const line = JSON.stringify(session) + '\n';
+        await this.app.vault.adapter.append(path, line);
+        this.chatHistory.push(session);
+    }
+
+    async clearHistory() {
+        const path = this.getHistoryFilePath();
+        await this.app.vault.adapter.write(path, '');
+        this.chatHistory = [];
     }
 
     // Use ISO yyyy-mm-dd keys, safe for string comparison
@@ -1679,8 +1704,6 @@ ${tc.args.code}`).join('\n\n'));
     async saveCurrentSession() {
         if (this.messages.length === 0) return;
 
-        const existingIndex = this.plugin.settings.chatHistory.findIndex(s => s.id === this.currentSessionId);
-
         const session = {
             id: this.currentSessionId,
             timestamp: Date.now(),
@@ -1688,16 +1711,16 @@ ${tc.args.code}`).join('\n\n'));
             title: this.generateSessionTitle()
         };
 
-        if (existingIndex !== -1) {
-            this.plugin.settings.chatHistory[existingIndex] = session;
-        } else {
-            this.plugin.settings.chatHistory.unshift(session);
-            if (this.plugin.settings.chatHistory.length > 10) {
-                this.plugin.settings.chatHistory = this.plugin.settings.chatHistory.slice(0, 10);
-            }
-        }
+        const existingIndex = this.plugin.chatHistory.findIndex(s => s.id === this.currentSessionId);
 
-        await this.plugin.saveSettings();
+        if (existingIndex !== -1) {
+            this.plugin.chatHistory[existingIndex] = session;
+            const path = this.plugin.getHistoryFilePath();
+            const lines = this.plugin.chatHistory.map(s => JSON.stringify(s)).join('\n') + '\n';
+            await this.app.vault.adapter.write(path, lines);
+        } else {
+            await this.plugin.appendHistory(session);
+        }
     }
 
     generateSessionTitle() {
@@ -1708,7 +1731,7 @@ ${tc.args.code}`).join('\n\n'));
     }
 
     async loadSession(sessionId) {
-        const session = this.plugin.settings.chatHistory.find(s => s.id === sessionId);
+        const session = this.plugin.chatHistory.find(s => s.id === sessionId);
         if (!session) return;
 
         this.messages = [...session.messages];
@@ -1727,12 +1750,12 @@ ${tc.args.code}`).join('\n\n'));
         const menu = new Menu();
         menu.dom.addClass('copilot-history-menu');
 
-        if (this.plugin.settings.chatHistory.length === 0) {
+        if (this.plugin.chatHistory.length === 0) {
             menu.addItem((item) => {
                 item.setTitle('No chat history').setDisabled(true);
             });
         } else {
-            this.plugin.settings.chatHistory.forEach((session) => {
+            this.plugin.chatHistory.forEach((session) => {
                 const date = new Date(session.timestamp);
                 const timeStr = date.toLocaleString([], {
                     month: 'short',
@@ -1768,8 +1791,7 @@ ${tc.args.code}`).join('\n\n'));
                     .setIcon('trash')
                     .onClick(() => {
                         new ConfirmationModal(this.app, async () => {
-                            this.plugin.settings.chatHistory = [];
-                            await this.plugin.saveSettings();
+                            await this.plugin.clearHistory();
                             new Notice('Chat history cleared');
                         }).open();
                     });
