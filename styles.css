@@ -597,6 +597,23 @@ button {
     color: rgb(239, 68, 68);
 }
 
+/* ADD: Multi-API key manager styles */
+.copilot-keys-list {
+    margin-top: var(--copilot-spacing);
+}
+
+/* Visible, well-aligned inputs for API key manager */
+.copilot-api-name-input {
+    max-width: 220px;
+}
+
+.copilot-api-input,
+.copilot-api-key-input {
+    font-family: var(--font-monospace);
+    letter-spacing: 0.02em;
+}
+
+
 /* ===== Scrollbars ===== */
 .copilot-chat-container::-webkit-scrollbar,
 .copilot-suggestions::-webkit-scrollbar,
@@ -880,7 +897,7 @@ button {
 }
 
 .copilot-settings-container .setting-item {
-    padding: 16px 0;
+    padding: 12px 0;
 }
 
 .copilot-api-input {

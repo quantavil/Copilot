@@ -1,5 +1,19 @@
 {
-  "apiKey": "AIzaSyA6kJAtrUgNeWISWFKE3BFEYfQldCQ4RbM",
+  "apiKeys": [
+    {
+      "id": "key-1756553052573-0",
+      "name": "Default",
+      "key": "AIzaSyAnVJ0QSytgrqOuA2c6rQ5YD_zWcx4l1pg",
+      "verified": true
+    },
+    {
+      "id": "key-1756553127291-1",
+      "name": "HypeVector",
+      "key": "AIzaSyBjRi6kdWfi0yeXDj9Y1ByVNNpoPOxTPco",
+      "verified": true
+    }
+  ],
+  "selectedApiKeyId": "key-1756553052573-0",
   "selectedModel": "gemini-2.5-flash",
   "systemPrompt": "Use tools only if they add value or when direct answers aren’t feasible.\n- for simple math --> use math_eval supports (+, -, *, /, %, ^, log, factorial, avg, abs, round, ceil, floor, lcm, hcf,sin, cos, tan, asin, acos, atan) , constants (pi, e) \n- for complex problems or calculations -->  write the code to solve it and use run_js\n- for vault actions use: vault_*\n- Solve immediately; don’t explain tool use or ask permission.\n- If a tool is unavailable/fails, proceed without tools; do not ask for formulas/values unless truly missing.\n- Use LaTex for Math",
   "commands": [
@@ -40,7 +54,6 @@
     }
   ],
   "directReplace": false,
-  "apiVerified": true,
   "usageData": {
     "2025-08-23": {
       "gemini-2.5-pro": {
@@ -98,5 +111,8 @@
         "tokens": 37186
       }
     }
-  }
+  },
+  "activeApiKeyIndex": 0,
+  "apiVerified": true,
+  "apiKey": "AIzaSyA6kJAtrUgNeWISWFKE3BFEYfQldCQ4RbM"
 }

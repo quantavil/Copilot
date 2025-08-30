@@ -16,6 +16,7 @@ const {
 const vm = require('vm');
 const COPILOT_VIEW_TYPE = 'copilot-chat-view';
 const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+const MAX_API_KEYS = 5;
 // Helper: robust slash command parser (e.g., "/summarize rest of args")
 // Returns { name, args } or null if not a slash command
 function parseSlashCommand(text) {
@@ -300,16 +301,42 @@ class CopilotPlugin extends Plugin {
     async loadSettings() {
         const savedData = await this.loadData() || {};
         const defaultSettings = {
-            apiKey: '',
+            apiKeys: [], // Array of {id, name, key, verified}
+            selectedApiKeyId: null,
             selectedModel: 'gemini-2.5-flash',
             systemPrompt: '',
             commands: [],
             directReplace: false,
-            apiVerified: false,
             usageData: {}
         };
 
         this.settings = { ...defaultSettings, ...savedData };
+
+        // Migrate old single apiKey to new format
+        if (savedData.apiKey && (!Array.isArray(this.settings.apiKeys) || this.settings.apiKeys.length === 0)) {
+            const id = `key-${Date.now()}`;
+            this.settings.apiKeys = [{
+                id,
+                name: 'Default Key',
+                key: savedData.apiKey,
+                verified: !!savedData.apiVerified
+            }];
+            this.settings.selectedApiKeyId = id;
+            delete this.settings.apiKey;
+            delete this.settings.apiVerified;
+        }
+
+        // Normalize apiKeys
+        if (!Array.isArray(this.settings.apiKeys)) this.settings.apiKeys = [];
+        this.settings.apiKeys = this.settings.apiKeys.slice(0, MAX_API_KEYS).map((k, i) => ({
+            id: k.id || `key-${Date.now()}-${i}`,
+            name: k.name || `Key ${i + 1}`,
+            key: k.key || '',
+            verified: !!k.verified
+        }));
+        if (!this.settings.selectedApiKeyId && this.settings.apiKeys.length > 0) {
+            this.settings.selectedApiKeyId = this.settings.apiKeys[0].id;
+        }
 
         // Ensure commands is an array
         if (!Array.isArray(this.settings.commands)) {
@@ -325,13 +352,44 @@ class CopilotPlugin extends Plugin {
             directReplace: cmd.directReplace !== undefined ? cmd.directReplace : this.settings.directReplace
         }));
 
-        
+        await this.saveSettings();
+    }
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
 
+    getActiveApiKeyEntry() {
+        const id = this.settings?.selectedApiKeyId;
+        if (!id) return null;
+        return (this.settings.apiKeys || []).find(k => k.id === id) || null;
+    }
+
+    getActiveApiKey() {
+        const e = this.getActiveApiKeyEntry();
+        return e?.key || '';
+    }
+
+    isActiveApiKeyVerified() {
+        const e = this.getActiveApiKeyEntry();
+        return !!e?.verified;
+    }
+
+    async setActiveApiKey(id) {
+        this.settings.selectedApiKeyId = id || null;
         await this.saveSettings();
     }
 
-    async saveSettings() {
-        await this.saveData(this.settings);
+    ensureActiveApiKeyOrNotice() {
+        const entry = this.getActiveApiKeyEntry();
+        if (!entry || !entry.key) {
+            new Notice('Please add and activate a Gemini API key in settings');
+            return false;
+        }
+        if (!entry.verified) {
+            new Notice('Please verify your active Gemini API key in settings');
+            return false;
+        }
+        return true;
     }
 
     getHistoryFilePath() {
@@ -486,10 +544,7 @@ class CopilotPlugin extends Plugin {
     }
 
     async executeCommand(command, editor, view) {
-        if (!this.settings.apiKey || !this.settings.apiVerified) {
-            new Notice('Please configure your Gemini API key in settings');
-            return;
-        }
+        if (!this.plugin.ensureActiveApiKeyOrNotice()) return;
 
         const selection = editor.getSelection();
         if (!selection && command.prompt.includes('{}')) {
@@ -542,7 +597,9 @@ class CopilotPlugin extends Plugin {
 
     // Unified Gemini request helper used by both API paths (with or without tools)
     async requestGemini(contents, toolDecls, abortSignal) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${this.settings.apiKey}`;
+        const apiKey = this.getActiveApiKey();
+        if (!apiKey) throw new Error('No active API key set');
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${apiKey}`;
         const requestBody = {
             contents,
             ...(toolDecls?.length ? { tools: [{ function_declarations: toolDecls }] } : {}),
@@ -558,8 +615,11 @@ class CopilotPlugin extends Plugin {
             const json = await res.json().catch(() => null);
 
             if (res.status === 401 || res.status === 403) {
-                this.settings.apiVerified = false;
-                await this.saveSettings();
+                const active = this.getActiveApiKeyEntry();
+                if (active) {
+                    active.verified = false;
+                    await this.saveSettings();
+                }
                 const msg = json?.error?.message || `API key invalid or unauthorized (status ${res.status})`;
                 throw new Error(msg);
             }
@@ -1402,10 +1462,7 @@ Try: /paper doc <name>, /paper doc off, /paper create "name"`);
         this.promptHistory.push(message);
         this.promptHistoryIndex = this.promptHistory.length;
 
-        if (!this.plugin.settings.apiKey || !this.plugin.settings.apiVerified) {
-            new Notice('Please configure your Gemini API key in settings');
-            return;
-        }
+        if (!this.ensureActiveApiKeyOrNotice()) return;
 
         // Remove welcome message if exists
         this.chatContainer.querySelector('.copilot-welcome')?.remove();
@@ -1644,20 +1701,20 @@ Consider the conversation history when determining your action and response.`;
             details.addEventListener('toggle', () => {
                 summary.setText(details.open ? 'Hide Code' : 'Show Code');
             });
-            
+
             // Create a container for the code content
             const codeContainer = details.createDiv();
             codeContainer.style.position = 'relative';
-            
+
             // Format the code content as a markdown code block
             const codeContent = jsToolCalls.map(tc => `\`\`\`javascript
 // Tool: ${tc.name}
 ${tc.args.code}
 \`\`\``).join('\n\n');
-            
+
             // Use Obsidian's MarkdownRenderer to properly render the code block with syntax highlighting
             MarkdownRenderer.render(this.app, codeContent, codeContainer, '', this);
-            
+
             // Add a copy button for the code content
             const copyButton = codeContainer.createEl('button', {
                 cls: 'copilot-copy-button',
@@ -1667,7 +1724,7 @@ ${tc.args.code}
                 const codeText = jsToolCalls.map(tc => `// Tool: ${tc.name}\n${tc.args.code}`).join('\n\n');
                 navigator.clipboard.writeText(codeText);
                 new Notice('Copied to clipboard');
-                
+
                 // Visual feedback
                 const originalText = copyButton.textContent;
                 copyButton.setText('Copied!');
@@ -1957,38 +2014,122 @@ class CopilotSettingTab extends PluginSettingTab {
 
         containerEl.createEl('h2', { text: 'Copilot Settings' });
 
-        // API Key
-        new Setting(containerEl)
-            .setName('Gemini API Key')
-            .setDesc('Enter your Google Gemini API key')
-            .addText(text => {
-                text
-                    .setPlaceholder('Enter your API key')
-                    .setValue(this.plugin.settings.apiKey)
-                    .onChange(async (value) => {
-                        this.plugin.settings.apiKey = value;
+        // API Keys (multi)
+        containerEl.createEl('h3', { text: 'API Keys' });
+
+        const header = new Setting(containerEl)
+            .setName('Manage up to 5 API keys')
+            .setDesc('Add multiple Gemini API keys and activate exactly one to use');
+
+        header.addButton(btn => {
+            btn.setButtonText('Add API Key');
+            btn.onClick(async () => {
+                if ((this.plugin.settings.apiKeys || []).length >= MAX_API_KEYS) {
+                    new Notice(`You can add up to ${MAX_API_KEYS} API keys`);
+                    return;
+                }
+                const idx = this.plugin.settings.apiKeys.length;
+                const newKey = {
+                    id: `key-${Date.now()}-${idx}`,
+                    name: `Key ${idx + 1}`,
+                    key: '',
+                    verified: false
+                };
+                this.plugin.settings.apiKeys.push(newKey);
+                if (!this.plugin.settings.selectedApiKeyId) {
+                    this.plugin.settings.selectedApiKeyId = newKey.id;
+                }
+                await this.plugin.saveSettings();
+                this.display();
+            });
+        });
+
+        const keysListEl = containerEl.createDiv('copilot-keys-list');
+
+        const renderKeysList = () => {
+            keysListEl.empty();
+            const keys = this.plugin.settings.apiKeys || [];
+            keys.forEach((k, idx) => {
+                const isActive = this.plugin.settings.selectedApiKeyId === k.id;
+
+                const row = new Setting(keysListEl)
+                    .setName(k.name || `Key ${idx + 1}`)
+                    .setDesc(`${isActive ? 'Active • ' : ''}${k.verified ? 'Verified' : 'Not verified'}`);
+
+                // Name (not hidden)
+                row.addText(t => {
+                    t.setPlaceholder('Name (e.g., Work Key)');
+                    t.setValue(k.name || '');
+                    t.onChange(async (v) => {
+                        k.name = v;
                         await this.plugin.saveSettings();
+                        row.setName(v || `Key ${idx + 1}`);
                     });
-                text.inputEl.type = 'password';
-                text.inputEl.addClass('copilot-api-input');
-            })
-            .addButton(button => {
-                button
-                    .setButtonText('Verify')
-                    .onClick(async () => {
-                        containerEl.querySelector('.copilot-api-status')?.remove();
-                        const settingItem = button.buttonEl.closest('.setting-item');
-                        const status = settingItem.createDiv('copilot-api-status');
+                    t.inputEl.classList.add('copilot-api-name-input');
+                });
+
+                // Key (not hidden)
+                row.addText(t => {
+                    t.setPlaceholder('API key');
+                    t.setValue(k.key || '');
+                    t.onChange(async (v) => {
+                        k.key = v;
+                        k.verified = false; // reset verification if changed
+                        await this.plugin.saveSettings();
+                        row.setDesc(`${isActive ? 'Active • ' : ''}${k.verified ? 'Verified' : 'Not verified'}`);
+                    });
+                    t.inputEl.type = 'text'; // visible characters
+                    t.inputEl.classList.add('copilot-api-key-input');
+                });
+
+                // Verify
+                row.addButton(b => {
+                    b.setButtonText('Verify');
+                    b.onClick(async () => {
+                        const settingItem = b.buttonEl.closest('.setting-item');
+                        let status = settingItem.querySelector('.copilot-api-status');
+                        if (!status) status = settingItem.createDiv({ cls: 'copilot-api-status' });
                         status.setText('Verifying...');
 
-                        const isValid = await this.plugin.verifyAPIKey(this.plugin.settings.apiKey);
-                        this.plugin.settings.apiVerified = isValid;
+                        const ok = await this.plugin.verifyAPIKey(k.key);
+                        k.verified = ok;
                         await this.plugin.saveSettings();
 
-                        status.addClass(isValid ? 'success' : 'error');
-                        status.setText(isValid ? '✓ API key verified successfully' : '✗ Invalid API key');
+                        status.setText(ok ? '✓ Verified' : '✗ Invalid');
+                        status.classList.toggle('success', ok);
+                        status.classList.toggle('error', !ok);
+                        row.setDesc(`${isActive ? 'Active • ' : ''}${k.verified ? 'Verified' : 'Not verified'}`);
                     });
+                });
+
+                // Activate
+                row.addButton(b => {
+                    b.setButtonText(isActive ? 'Active' : 'Set Active');
+                    if (isActive) b.buttonEl.classList.add('mod-cta');
+                    b.onClick(async () => {
+                        await this.plugin.setActiveApiKey(k.id);
+                        renderKeysList();
+                    });
+                });
+
+                // Delete
+                row.addExtraButton(btn => {
+                    btn.setIcon('trash');
+                    btn.setTooltip('Delete');
+                    btn.onClick(async () => {
+                        const wasActive = this.plugin.settings.selectedApiKeyId === k.id;
+                        this.plugin.settings.apiKeys.splice(idx, 1);
+                        if (wasActive) {
+                            this.plugin.settings.selectedApiKeyId = this.plugin.settings.apiKeys[0]?.id || null;
+                        }
+                        await this.plugin.saveSettings();
+                        renderKeysList();
+                    });
+                });
             });
+        };
+
+        renderKeysList();
 
         // Model selection
         new Setting(containerEl)
@@ -2159,6 +2300,7 @@ class CopilotSettingTab extends PluginSettingTab {
             });
         });
     }
+
 }
 
 // ===== COMMAND EDIT MODAL =====
