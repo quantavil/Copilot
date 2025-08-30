@@ -2070,16 +2070,6 @@ class CopilotSettingTab extends PluginSettingTab {
                         input.value = currentName;
                         input.classList.add('copilot-inline-edit-input');
                         
-                        // Add styles for the inline input
-                        input.style.background = 'var(--background-modifier-form-field)';
-                        input.style.border = '1px solid var(--interactive-accent)';
-                        input.style.borderRadius = '4px';
-                        input.style.padding = '2px 6px';
-                        input.style.fontSize = '14px';
-                        input.style.fontFamily = 'inherit';
-                        input.style.color = 'var(--text-normal)';
-                        input.style.width = '180px';
-                        
                         // Replace the name element with the input
                         nameEl.replaceWith(input);
                         input.focus();
