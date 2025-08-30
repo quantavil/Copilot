@@ -234,6 +234,7 @@ button {
     padding: 12px;
     background: var(--background-primary);
     overflow-x: auto;
+    user-select: text;
 }
 
 .copilot-code-block-wrapper code,
