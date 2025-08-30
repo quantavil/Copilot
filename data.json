@@ -7,8 +7,14 @@
       "verified": false
     },
     {
-      "id": "key-1756553127291-1",
-      "name": "HypeVector",
+      "id": "key-1756556660926-2",
+      "name": "Key 3",
+      "key": "AIzaSyBkbDlwdw4xUB9_wiwcNvXYnEGrLSlJcwU",
+      "verified": true
+    },
+    {
+      "id": "key-1756556691148-2",
+      "name": "Key2",
       "key": "AIzaSyBjRi6kdWfi0yeXDj9Y1ByVNNpoPOxTPco",
       "verified": true
     }
@@ -111,8 +117,5 @@
         "tokens": 37186
       }
     }
-  },
-  "activeApiKeyIndex": 0,
-  "apiVerified": true,
-  "apiKey": "AIzaSyA6kJAtrUgNeWISWFKE3BFEYfQldCQ4RbM"
+  }
 }
