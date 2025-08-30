@@ -604,13 +604,37 @@ button {
 
 /* Visible, well-aligned inputs for API key manager */
 .copilot-api-name-input {
-    max-width: 220px;
+    max-width: 180px;
 }
 
-.copilot-api-input,
 .copilot-api-key-input {
+    max-width: 220px;
     font-family: var(--font-monospace);
     letter-spacing: 0.02em;
+}
+
+.copilot-api-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.copilot-api-status {
+    margin-left: 8px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    display: inline-block;
+}
+
+.copilot-api-status.success {
+    background: rgba(34, 197, 94, 0.2);
+    color: rgb(34, 197, 94);
+}
+
+.copilot-api-status.error {
+    background: rgba(239, 68, 68, 0.2);
+    color: rgb(239, 68, 68);
 }
 
 
@@ -1029,4 +1053,34 @@ button:focus-visible {
     .copilot-copy-button {
         border: 1px solid currentColor;
     }
+}
+
+/* ===== Compact Settings ===== */
+.copilot-settings-container .setting-item {
+    padding: 8px 0;
+}
+
+.copilot-settings-container h3 {
+    margin: 16px 0 8px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.copilot-settings-container .setting-item-info {
+    flex: 1 1 auto;
+}
+
+.copilot-settings-container .setting-item-control {
+    flex: 1 1 auto;
+}
+
+.copilot-inline-edit-input {
+    background: var(--background-modifier-form-field);
+    border: 1px solid var(--interactive-accent);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text-normal);
+    width: 180px;
 }

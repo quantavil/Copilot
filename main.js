@@ -2056,17 +2056,78 @@ class CopilotSettingTab extends PluginSettingTab {
                     .setName(k.name || `Key ${idx + 1}`)
                     .setDesc(`${isActive ? 'Active • ' : ''}${k.verified ? 'Verified' : 'Not verified'}`);
 
-                // Name (not hidden)
-                row.addText(t => {
-                    t.setPlaceholder('Name (e.g., Work Key)');
-                    t.setValue(k.name || '');
-                    t.onChange(async (v) => {
-                        k.name = v;
-                        await this.plugin.saveSettings();
-                        row.setName(v || `Key ${idx + 1}`);
+                // Make the setting name editable on double click
+                const nameEl = row.settingEl.querySelector('.setting-item-name');
+                if (nameEl) {
+                    nameEl.style.cursor = 'pointer';
+                    nameEl.style.userSelect = 'none';
+                    nameEl.title = 'Double-click to edit name';
+                    
+                    nameEl.addEventListener('dblclick', () => {
+                        const currentName = k.name || `Key ${idx + 1}`;
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = currentName;
+                        input.classList.add('copilot-inline-edit-input');
+                        
+                        // Add styles for the inline input
+                        input.style.background = 'var(--background-modifier-form-field)';
+                        input.style.border = '1px solid var(--interactive-accent)';
+                        input.style.borderRadius = '4px';
+                        input.style.padding = '2px 6px';
+                        input.style.fontSize = '14px';
+                        input.style.fontFamily = 'inherit';
+                        input.style.color = 'var(--text-normal)';
+                        input.style.width = '180px';
+                        
+                        // Replace the name element with the input
+                        nameEl.replaceWith(input);
+                        input.focus();
+                        
+                        // Save on Enter or blur
+                        const saveName = async () => {
+                            const newName = input.value.trim() || `Key ${idx + 1}`;
+                            k.name = newName;
+                            await this.plugin.saveSettings();
+                            
+                            // Restore the name element
+                            const newNameEl = document.createElement('div');
+                            newNameEl.classList.add('setting-item-name');
+                            newNameEl.textContent = newName;
+                            newNameEl.style.cursor = 'pointer';
+                            newNameEl.style.userSelect = 'none';
+                            newNameEl.title = 'Double-click to edit name';
+                            input.replaceWith(newNameEl);
+                            
+                            // Reattach event listener
+                            newNameEl.addEventListener('dblclick', () => {
+                                renderKeysList(); // Re-render to enable editing again
+                            });
+                        };
+                        
+                        input.addEventListener('keydown', async (e) => {
+                            if (e.key === 'Enter') {
+                                await saveName();
+                            } else if (e.key === 'Escape') {
+                                // Restore without saving
+                                const newNameEl = document.createElement('div');
+                                newNameEl.classList.add('setting-item-name');
+                                newNameEl.textContent = k.name || `Key ${idx + 1}`;
+                                newNameEl.style.cursor = 'pointer';
+                                newNameEl.style.userSelect = 'none';
+                                newNameEl.title = 'Double-click to edit name';
+                                input.replaceWith(newNameEl);
+                                
+                                // Reattach event listener
+                                newNameEl.addEventListener('dblclick', () => {
+                                    renderKeysList(); // Re-render to enable editing again
+                                });
+                            }
+                        });
+                        
+                        input.addEventListener('blur', saveName);
                     });
-                    t.inputEl.classList.add('copilot-api-name-input');
-                });
+                }
 
                 // Key (not hidden)
                 row.addText(t => {
@@ -2082,49 +2143,57 @@ class CopilotSettingTab extends PluginSettingTab {
                     t.inputEl.classList.add('copilot-api-key-input');
                 });
 
-                // Verify
-                row.addButton(b => {
-                    b.setButtonText('Verify');
-                    b.onClick(async () => {
-                        const settingItem = b.buttonEl.closest('.setting-item');
-                        let status = settingItem.querySelector('.copilot-api-status');
-                        if (!status) status = settingItem.createDiv({ cls: 'copilot-api-status' });
-                        status.setText('Verifying...');
+                // Compact API actions container
+                const actionsContainer = row.controlEl.createDiv('copilot-api-actions');
+                actionsContainer.style.display = 'flex';
+                actionsContainer.style.gap = '6px';
+                actionsContainer.style.alignItems = 'center';
 
-                        const ok = await this.plugin.verifyAPIKey(k.key);
-                        k.verified = ok;
-                        await this.plugin.saveSettings();
+                // Verify button
+                const verifyBtn = actionsContainer.createEl('button', { text: 'Verify' });
+                verifyBtn.classList.add('mod-muted');
+                verifyBtn.style.padding = '4px 8px';
+                verifyBtn.style.fontSize = '12px';
+                verifyBtn.addEventListener('click', async () => {
+                    const status = actionsContainer.querySelector('.copilot-api-status') || actionsContainer.createDiv({ cls: 'copilot-api-status' });
+                    status.style.marginLeft = '8px';
+                    status.style.fontSize = '12px';
+                    status.setText('Verifying...');
 
-                        status.setText(ok ? '✓ Verified' : '✗ Invalid');
-                        status.classList.toggle('success', ok);
-                        status.classList.toggle('error', !ok);
-                        row.setDesc(`${isActive ? 'Active • ' : ''}${k.verified ? 'Verified' : 'Not verified'}`);
-                    });
+                    const ok = await this.plugin.verifyAPIKey(k.key);
+                    k.verified = ok;
+                    await this.plugin.saveSettings();
+
+                    status.setText(ok ? '✓ Verified' : '✗ Invalid');
+                    status.classList.toggle('success', ok);
+                    status.classList.toggle('error', !ok);
+                    row.setDesc(`${isActive ? 'Active • ' : ''}${k.verified ? 'Verified' : 'Not verified'}`);
                 });
 
-                // Activate
-                row.addButton(b => {
-                    b.setButtonText(isActive ? 'Active' : 'Set Active');
-                    if (isActive) b.buttonEl.classList.add('mod-cta');
-                    b.onClick(async () => {
-                        await this.plugin.setActiveApiKey(k.id);
-                        renderKeysList();
-                    });
+                // Activate button
+                const activateBtn = actionsContainer.createEl('button', { text: isActive ? 'Active' : 'Set Active' });
+                if (isActive) activateBtn.classList.add('mod-cta');
+                activateBtn.style.padding = '4px 8px';
+                activateBtn.style.fontSize = '12px';
+                activateBtn.addEventListener('click', async () => {
+                    await this.plugin.setActiveApiKey(k.id);
+                    renderKeysList();
                 });
 
-                // Delete
-                row.addExtraButton(btn => {
-                    btn.setIcon('trash');
-                    btn.setTooltip('Delete');
-                    btn.onClick(async () => {
-                        const wasActive = this.plugin.settings.selectedApiKeyId === k.id;
-                        this.plugin.settings.apiKeys.splice(idx, 1);
-                        if (wasActive) {
-                            this.plugin.settings.selectedApiKeyId = this.plugin.settings.apiKeys[0]?.id || null;
-                        }
-                        await this.plugin.saveSettings();
-                        renderKeysList();
-                    });
+                // Delete button
+                const deleteBtn = actionsContainer.createEl('button', { text: '✕' });
+                deleteBtn.classList.add('mod-warning');
+                deleteBtn.style.padding = '4px 8px';
+                deleteBtn.style.fontSize = '12px';
+                deleteBtn.title = 'Delete';
+                deleteBtn.addEventListener('click', async () => {
+                    const wasActive = this.plugin.settings.selectedApiKeyId === k.id;
+                    this.plugin.settings.apiKeys.splice(idx, 1);
+                    if (wasActive) {
+                        this.plugin.settings.selectedApiKeyId = this.plugin.settings.apiKeys[0]?.id || null;
+                    }
+                    await this.plugin.saveSettings();
+                    renderKeysList();
                 });
             });
         };
