@@ -96,6 +96,7 @@ button {
     animation: rotate 1s linear infinite;
 }
 
+/* ===== Animations ===== */
 @keyframes pulse-glow {
 
     0%,
@@ -118,16 +119,6 @@ button {
     }
 }
 
-/* ===== Messages ===== */
-.copilot-message {
-    position: relative;
-    padding: 12px 16px;
-    border-radius: 12px;
-    max-width: 85%;
-    margin-bottom: 12px;
-    animation: messageSlide 0.2s ease-out;
-}
-
 @keyframes messageSlide {
     from {
         opacity: 0;
@@ -138,6 +129,55 @@ button {
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+@keyframes welcomeFade {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    80%,
+    100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+    }
+
+    40% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ===== Messages ===== */
+.copilot-message {
+    position: relative;
+    padding: 12px 16px;
+    border-radius: 12px;
+    max-width: 85%;
+    margin-bottom: 12px;
+    animation: messageSlide 0.2s ease-out;
 }
 
 .copilot-message.user {
@@ -179,14 +219,31 @@ button {
     margin-top: 4px;
 }
 
-/* ===== Code Blocks ===== */
-.copilot-code-block-wrapper {
+/* ===== Code Blocks (Shared Styles) ===== */
+.copilot-code-block-wrapper,
+.copilot-message details {
     margin: 12px 0;
     border-radius: var(--copilot-radius);
     overflow: hidden;
     border: 1px solid var(--background-modifier-border);
 }
 
+.copilot-code-block-wrapper pre,
+.copilot-message pre {
+    margin: 0;
+    padding: 12px;
+    background: var(--background-primary);
+    overflow-x: auto;
+}
+
+.copilot-code-block-wrapper code,
+.copilot-message code {
+    font-family: var(--font-monospace);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* ===== Code Block Specific ===== */
 .copilot-code-block-header {
     display: flex;
     justify-content: space-between;
@@ -221,18 +278,25 @@ button {
 }
 
 .copilot-code-block-wrapper pre {
-    margin: 0;
     padding: 16px;
-    background: var(--background-primary);
-    overflow-x: auto;
 }
 
-.copilot-code-block-wrapper code {
-    font-family: var(--font-monospace);
-    font-size: 13px;
-    line-height: 1.5;
+/* ===== Collapsible Code Block Specific ===== */
+.copilot-message details {
+    margin-top: 10px;
 }
 
+.copilot-message summary {
+    padding: 4px 8px;
+    cursor: pointer;
+    background-color: var(--background-secondary-alt);
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.copilot-message details[open] summary {
+    border-bottom: 1px solid var(--background-modifier-border);
+}
 
 /* ===== Input Area ===== */
 .copilot-input-wrapper {
@@ -258,7 +322,7 @@ button {
     resize: none;
     font-size: 0.875rem;
     line-height: 1.5;
-    transition: all 0.2s ease;
+    transition: var(--copilot-transition);
     box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
 }
 
@@ -342,18 +406,6 @@ button {
     animation: welcomeFade 0.6s ease-out;
 }
 
-@keyframes welcomeFade {
-    from {
-        opacity: 0;
-        transform: scale(0.9);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
 .copilot-welcome-icon {
     font-size: 64px;
     margin-bottom: 24px;
@@ -362,18 +414,6 @@ button {
     -webkit-text-fill-color: transparent;
     background-clip: text;
     animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-10px);
-    }
 }
 
 .copilot-welcome-title {
@@ -408,21 +448,6 @@ button {
 
 .copilot-loading-dot:nth-child(2) {
     animation-delay: -0.16s;
-}
-
-@keyframes pulse {
-
-    0%,
-    80%,
-    100% {
-        opacity: 0.3;
-        transform: scale(0.8);
-    }
-
-    40% {
-        opacity: 1;
-        transform: scale(1);
-    }
 }
 
 /* ===== Commands & Settings ===== */
@@ -474,7 +499,7 @@ button {
     white-space: pre-wrap;
 }
 
-/* ===== Modals & Containers ===== */
+/* ===== Shared Container Styles ===== */
 .copilot-output-container,
 .copilot-bulk-preview {
     margin: 16px 0;
@@ -494,6 +519,7 @@ button {
     line-height: 1.5;
 }
 
+/* ===== Button Container ===== */
 .copilot-button-container {
     display: flex;
     gap: 8px;
@@ -814,10 +840,6 @@ button {
     margin: 0;
 }
 
-.copilot-welcome-subtitle {
-    font-size: 14px;
-}
-
 .copilot-copy-icon {
     width: 14px;
     height: 14px;
@@ -964,36 +986,4 @@ button:focus-visible {
     .copilot-copy-button {
         border: 1px solid currentColor;
     }
-}
-
-/* ===== Collapsible Code Block ===== */
-.copilot-message details {
-    margin-top: 10px;
-    border-radius: var(--copilot-radius);
-    border: 1px solid var(--background-modifier-border);
-    overflow: hidden;
-}
-
-.copilot-message summary {
-    padding: 4px 8px;
-    cursor: pointer;
-    background-color: var(--background-secondary-alt);
-    font-weight: 500;
-    font-size: 12px;
-}
-
-.copilot-message details[open] summary {
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.copilot-message pre {
-    margin: 0;
-    padding: 12px;
-    background-color: var(--background-primary);
-    overflow-x: auto;
-}
-
-.copilot-message code {
-    font-family: var(--font-monospace);
-    font-size: 13px;
 }
