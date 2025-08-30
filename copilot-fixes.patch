@@ -1,0 +1,395 @@
+diff --git a/main.js b/main.js
+index 0000000..0000001 100644
+--- a/main.js
++++ b/main.js
+@@ -1,6 +1,7 @@
+ // ===== IMPORTS AND CONSTANTS =====
+ const {
+     Plugin,
++    TFile,
+     PluginSettingTab,
+     Setting,
+     Modal,
+@@ -17,6 +18,16 @@ const {
+ } = require('obsidian');
+ const vm = require('vm');
+ const COPILOT_VIEW_TYPE = 'copilot-chat-view';
+ const GEMINI_MODELS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
++
++// Helper: robust slash command parser (e.g., "/summarize rest of args")
++// Returns { name, args } or null if not a slash command
++function parseSlashCommand(text) {
++    const m = String(text || '').trim().match(/^\/([A-Za-z0-9-]+)(?:\s+(.*))?$/);
++    if (!m) return null;
++    return {
++        name: m[1],
++        args: m[2] ?? ''
++    };
++}
+ class SafeJSRunner {
+     constructor(options = {}) {
+         this.syncTimeoutMs = options.syncTimeoutMs ?? 2000;
+@@ -97,7 +108,7 @@ class ToolRegistry {
+                 },
+                 required: ['expression']
+             },
+             handler: async ({ expression }) => {
+                 const expr = String(expression || '').trim();
+                 if (!/^[0-9+\-*/%^().\s]+$/.test(expr)) {
+                     return { ok: false, error: 'Expression contains unsupported characters' };
+                 }
+                 try {
+-                    const res = new Function(`return (${expr});`)();
++                    const exprJS = expr.replace(/\^/g, '**');
++                    const res = new Function(`return (${exprJS});`)();
+                     return { ok: true, result: res };
+                 } catch (e) {
+                     return { ok: false, error: String(e.message || e) };
+                 }
+             }
+         });
+@@ -118,7 +129,10 @@ class ToolRegistry {
+                 }
+                 if (/\b(require|process|global|Function|eval|import\s*KATEX_INLINE_OPEN)/.test(code)) {
+                     return { ok: false, error: 'Disallowed token in code' };
+                 }
+-                return await this.jsRunner.run(code, input);
++                // Hardened disallow-list
++                if (/\b(require|module|exports|process|globalThis|global|Function|AsyncFunction|GeneratorFunction|eval|import(?:\s*KATEX_INLINE_OPEN|\.meta)|child_process|worker_threads|fs|net|tls|vm|dgram|cluster)\b/.test(code)) {
++                    return { ok: false, error: 'Disallowed token in code' };
++                }
++                return await this.jsRunner.run(code, input);
+             }
+         });
+ 
+@@ -350,7 +364,7 @@ class CopilotPlugin extends Plugin {
+         if (selection) {
+-            processed = processed.replace(/\{\}/g, selection);
++            processed = processed.replace(/\{\}/g, () => selection);
+         }
+ 
+         // Replace {activeNote} with current note content
+         if (processed.includes('{activeNote}')) {
+@@ -366,64 +380,76 @@ class CopilotPlugin extends Plugin {
+         return processed;
+     }
+ 
+-    async callGeminiAPI(input, abortSignal) {
+-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${this.settings.apiKey}`;
+-
+-        const contents = Array.isArray(input)
+-            ? input
+-            : [{
+-                role: 'user',
+-                parts: [{ text: input }]
+-            }];
+-
+-        const requestBody = {
+-            contents,
+-            ...(this.settings.systemPrompt
+-                ? { system_instruction: { parts: [{ text: this.settings.systemPrompt }] } }
+-                : {})
+-        };
+-
+-        try {
+-            const res = await fetch(url, {
+-                method: 'POST',
+-                headers: { 'Content-Type': 'application/json' },
+-                body: JSON.stringify(requestBody),
+-                signal: abortSignal
+-            });
+-
+-            const json = await res.json().catch(() => null);
+-
+-            if (res.status === 401 || res.status === 403) {
+-                this.settings.apiVerified = false;
+-                await this.saveSettings();
+-                const msg = json?.error?.message || `API key invalid or unauthorized (status ${res.status})`;
+-                throw new Error(msg);
+-            }
+-
+-            if (!res.ok) {
+-                const msg = json?.error?.message || `HTTP ${res.status}`;
+-                throw new Error(msg);
+-            }
+-
+-            const parts = json?.candidates?.[0]?.content?.parts || [];
+-            const text = parts.map(p => p.text || '').join('').trim();
+-
+-            // Track usage - rough token estimate
+-            const estimatedTokens = Math.ceil((JSON.stringify(requestBody).length + text.length) / 4);
+-            await this.trackUsage(this.settings.selectedModel, estimatedTokens);
+-
+-            if (text) return text;
+-
+-            throw new Error('Invalid response from API');
+-        } catch (error) {
+-            if (error.name === 'AbortError') {
+-                throw new Error('Generation stopped by user');
+-            }
+-            console.error('Gemini API network error:', error);
+-            throw error;
+-        }
+-    }
++    // Unified Gemini request helper used by both API paths (with or without tools)
++    async requestGemini(contents, toolDecls, abortSignal) {
++        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${this.settings.apiKey}`;
++        const requestBody = {
++            contents,
++            ...(toolDecls?.length ? { tools: [{ function_declarations: toolDecls }] } : {}),
++            ...(this.settings.systemPrompt ? { system_instruction: { parts: [{ text: this.settings.systemPrompt }] } } : {})
++        };
++        try {
++            const res = await fetch(url, {
++                method: 'POST',
++                headers: { 'Content-Type': 'application/json' },
++                body: JSON.stringify(requestBody),
++                signal: abortSignal
++            });
++            const json = await res.json().catch(() => null);
++
++            if (res.status === 401 || res.status === 403) {
++                this.settings.apiVerified = false;
++                await this.saveSettings();
++                const msg = json?.error?.message || `API key invalid or unauthorized (status ${res.status})`;
++                throw new Error(msg);
++            }
++            if (!res.ok) {
++                const msg = json?.error?.message || `HTTP ${res.status}`;
++                throw new Error(msg);
++            }
++
++            const candidate = json?.candidates?.[0];
++            const parts = candidate?.content?.parts || [];
++            const textAccum = parts.map(p => p.text || '').join('');
++
++            // Track usage - rough token estimate
++            const estimatedTokens = Math.ceil((JSON.stringify(requestBody).length + textAccum.length) / 4);
++            await this.trackUsage(this.settings.selectedModel, estimatedTokens);
++
++            return { candidate, parts, text: textAccum.trim() };
++        } catch (error) {
++            if (error.name === 'AbortError') throw new Error('Generation stopped by user');
++            console.error('Gemini API error:', error);
++            throw error;
++        }
++    }
++
++    async callGeminiAPI(input, abortSignal) {
++        const contents = Array.isArray(input)
++            ? input
++            : [{ role: 'user', parts: [{ text: input }] }];
++        const { text } = await this.requestGemini(contents, undefined, abortSignal);
++        if (text) return text;
++        throw new Error('Invalid response from API');
++    }
+ 
+     async callGeminiWithTools(input, toolNames, abortSignal) {
+-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.settings.selectedModel}:generateContent?key=${this.settings.apiKey}`;
+-
+         let contents = Array.isArray(input)
+             ? input
+             : [{ role: 'user', parts: [{ text: input }] }];
+ 
+         const toolDecls = this.tools?.getDeclarations(toolNames) || [];
+         const maxIters = 6;
+         let toolErrors = []; // Track tool errors for potential fallback message
+         let toolCalls = []; // To store tool calls
+ 
+         for (let iter = 0; iter < maxIters; iter++) {
+-            const requestBody = {
+-                contents,
+-                ...(toolDecls.length ? { tools: [{ function_declarations: toolDecls }] } : {}),
+-                ...(this.settings.systemPrompt
+-                    ? { system_instruction: { parts: [{ text: this.settings.systemPrompt }] } }
+-                    : {})
+-            };
+-
+             try {
+-                const res = await fetch(url, {
+-                    method: 'POST',
+-                    headers: { 'Content-Type': 'application/json' },
+-                    body: JSON.stringify(requestBody),
+-                    signal: abortSignal
+-                });
+-                const json = await res.json().catch(() => null);
+-
+-                if (res.status === 401 || res.status === 403) {
+-                    this.settings.apiVerified = false;
+-                    await this.saveSettings();
+-                    const msg = json?.error?.message || `API key invalid or unauthorized (status ${res.status})`;
+-                    throw new Error(msg);
+-                }
+-                if (!res.ok) {
+-                    const msg = json?.error?.message || `HTTP ${res.status}`;
+-                    throw new Error(msg);
+-                }
+-
+-                const candidate = json?.candidates?.[0];
+-                const parts = candidate?.content?.parts || [];
+-
+-                // usage estimate
+-                const textAccum = parts.map(p => p.text || '').join('');
+-                const estimatedTokens = Math.ceil((JSON.stringify(requestBody).length + textAccum.length) / 4);
+-                await this.trackUsage(this.settings.selectedModel, estimatedTokens);
++                const { parts } = await this.requestGemini(contents, toolDecls, abortSignal);
+ 
+                 // If the model requested a function call
+                 const fcPart = parts.find(p => p.functionCall);
+                 if (fcPart && toolDecls.length) {
+                     const call = fcPart.functionCall;
+@@ -481,41 +507,22 @@ class CopilotPlugin extends Plugin {
+                         ];
+ 
+                         // Make one final call without tools
+-                        const fallbackRequestBody = {
+-                            contents,
+-                            ...(this.settings.systemPrompt
+-                                ? { system_instruction: { parts: [{ text: this.settings.systemPrompt }] } }
+-                                : {})
+-                        };
+-
+-                        try {
+-                            const fallbackRes = await fetch(url, {
+-                                method: 'POST',
+-                                headers: { 'Content-Type': 'application/json' },
+-                                body: JSON.stringify(fallbackRequestBody),
+-                                signal: abortSignal
+-                            });
+-                            const fallbackJson = await fallbackRes.json();
+-                            const fallbackParts = fallbackJson?.candidates?.[0]?.content?.parts || [];
+-                            const fallbackText = fallbackParts.map(p => p.text || '').join('').trim();
+-
+-                            if (fallbackText) {
+-                                // Add a note about the tool failure if not already mentioned
+-                                if (!fallbackText.toLowerCase().includes('tool') && !fallbackText.toLowerCase().includes('error')) {
+-                                    return { text: `I encountered an issue with some tools, but here's what I can help you with:\n\n${fallbackText}`, toolCalls };
+-                                }
+-                                return { text: fallbackText, toolCalls };
+-                            }
+-                        } catch (fallbackError) {
+-                            console.error('Fallback request failed:', fallbackError);
+-                        }
++                        const { text: fallbackText } = await this.requestGemini(contents, undefined, abortSignal);
++                        if (fallbackText) {
++                            if (!fallbackText.toLowerCase().includes('tool') && !fallbackText.toLowerCase().includes('error')) {
++                                return { text: `I encountered an issue with some tools, but here's what I can help you with:\n\n${fallbackText}`, toolCalls };
++                            }
++                            return { text: fallbackText, toolCalls };
++                        }
+                     }
+ 
+                     // Extend conversation with model's call and our function response
+                     contents = [
+                         ...contents,
+                         { role: 'model', parts },
+                         {
+                             role: 'function',
+                             parts: [{ functionResponse: { name, response: toolResponse } }]
+                         }
+                     ];
+ 
+                     // If tool failed but we're not at the last iteration, continue
+                     // The model might try a different approach
+                     continue;
+                 }
+ 
+                 // No function call → return text
+-                const text = parts.map(p => p.text || '').join('').trim();
++                const text = parts.map(p => p.text || '').join('').trim();
+                 if (text) return { text, toolCalls };
+ 
+                 // If we have accumulated tool errors but no text response
+                 if (toolErrors.length > 0) {
+@@ -655,9 +662,11 @@ class CopilotChatView extends ItemView {
+ 
+     async sendMessage() {
+         const message = this.inputEl.value.trim();
+         // Quick local answer for simple arithmetic (no API needed)
+         const simpleExpr = message.replace(/,/g, '').trim();
+         if (/^[0-9+\-*/%^().\s]+$/.test(simpleExpr) && /[+\-*/%^]/.test(simpleExpr)) {
+             try {
+-                // safe: only numbers/operators allowed by regex above
+-                const quickVal = new Function(`return (${simpleExpr});`)();
++                // safe: only numbers/operators allowed by regex above
++                // Treat ^ as exponent, not XOR
++                const quickExpr = simpleExpr.replace(/\^/g, '**');
++                const quickVal = new Function(`return (${quickExpr});`)();
+                 if (typeof quickVal === 'number' && Number.isFinite(quickVal)) {
+                     // Remove welcome, add user/assistant messages, then return
+                     this.chatContainer.querySelector('.copilot-welcome')?.remove();
+@@ -684,7 +693,14 @@ class CopilotChatView extends ItemView {
+         if (message.startsWith('/paper')) {
+             const raw = message.slice(6).trim(); // cut "/paper"
+             const m = raw.match(/^([a-z-]+)\s*(.*)$/i) || [];
+             const sub = (m[1] || '').toLowerCase();
+             const restRaw = (m[2] || '').trim();
+-            const stripQuotes = (s) => s?.replace(/^"'["']$/, '$1').trim();
++            const stripQuotes = (s) => {
++                s = (s ?? '').trim();
++                if (!s) return s;
++                const first = s[0], last = s[s.length - 1];
++                if ((first === '"' && last === '"') || (first === "'" && last === "'")) {
++                    return s.slice(1, -1);
++                }
++                return s;
++            };
+ 
+ 
+             if (sub === 'off') {
+                 this.paperFile = null;
+@@ -773,12 +789,11 @@ class CopilotChatView extends ItemView {
+         this.abortController = new AbortController();
+         this.updateSendButton(true);
+ 
+-        // If a working doc is set, handle intelligent doc actions (unless it's a slash command)
+-        const docActionMatch = message.match(/^\/(\w+)\s*(.*)|(.*)\s*\/(\w+)$/);
+-        if (this.paperDocFile && !docActionMatch) {
++        const slash = parseSlashCommand(message);
++        // If a working doc is set, handle intelligent doc actions (unless it's a slash command)
++        if (this.paperDocFile && !slash) {
+             try {
+                 await this.processDocAction(message, loadingEl);
+                 // Update usage display and autosave
+                 this.updateUsageDisplay();
+                 await this.saveCurrentSession();
+@@ -797,13 +812,12 @@ class CopilotChatView extends ItemView {
+         try {
+             let prompt = message;
+ 
+             // Handle other slash commands (custom commands)
+-            const slashCommandMatch = message.match(/^\/(\w+)\s*(.*)|(.*)\s*\/(\w+)$/);
+-            if (slashCommandMatch) {
+-                const commandName = slashCommandMatch[1] || slashCommandMatch[4];
++            if (slash) {
++                const commandName = slash.name;
+                 const command = this.plugin.settings.commands.find(c =>
+                     c.name.toLowerCase() === commandName.toLowerCase()
+                 );
+ 
+                 if (command) {
+                     const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                     const selection = activeView ? activeView.editor.getSelection() : '';
+-                    const commandArgs = (slashCommandMatch[2] || slashCommandMatch[3] || '').trim();
++                    const commandArgs = (slash.args || '').trim();
+                     const textToProcess = commandArgs || selection;
+ 
+                     if (!textToProcess && command.prompt.includes('{}')) {
+                         new Notice(`Please select text or provide arguments for the ${command.name} command.`);
+@@ -1032,7 +1046,7 @@ class CopilotChatView extends ItemView {
+ 
+     renderAllMessages() {
+         this.chatContainer.empty();
+         for (const msg of this.messages) {
+-            this.addMessage(msg.type, msg.content, false, false);
++            this.addMessage(msg.type, msg.content, false, false, msg.toolCalls ?? []);
+         }
+     }
+ 
+diff --git a/main.js b/main.js
+index 0000001..0000002 100644
+--- a/main.js
++++ b/main.js
+@@ -1,5 +1,5 @@
+ // ===== EXPORT PLUGIN =====
+ module.exports = CopilotPlugin;
