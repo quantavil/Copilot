@@ -1,9 +1,9 @@
 {
   "id": "copilot",
   "name": "Copilot",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "minAppVersion": "1.0.0",
-  "description": "Bring AI into your notes with custom commands powered by Gemini API",
+  "description": "A Copilot for Obsidian with enhanced math capabilities, powered by Gemini API",
   "author": "quantavil",
   "authorUrl": "https://github.com/quantavil",
   "isDesktopOnly": false

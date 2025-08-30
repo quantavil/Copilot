@@ -97,23 +97,57 @@ class ToolRegistry {
         // math_eval
         this.registerTool({
             name: 'math_eval',
-            description: 'Evaluate a simple arithmetic expression. Allowed: numbers, + - * / % ^ parentheses, decimals, spaces.',
+            description: 'Evaluate a mathematical expression. Supports basic arithmetic (+, -, *, /, %, ^) and advanced functions: log(base, n), factorial(n), avg(...numbers), abs(n), round(n), ceil(n), floor(n), lcm(a, b), hcf(a, b).',
             parameters: {
                 type: 'object',
                 properties: {
-                    expression: { type: 'string', description: 'e.g., (2+3)*4/5' }
+                    expression: { type: 'string', description: 'e.g., log(2, 8), factorial(5), avg(1,2,3), abs(-5)' }
                 },
                 required: ['expression']
             },
             handler: async ({ expression }) => {
                 const expr = String(expression || '').trim();
-                if (!/^[0-9+\-*/%^().\s]+$/.test(expr)) {
+
+                // Enhanced validation to allow function names and commas
+                if (!/^[0-9+\-*/%^().\s,a-z_]+$/.test(expr)) {
                     return { ok: false, error: 'Expression contains unsupported characters' };
                 }
+
                 try {
-                    // Treat ^ as exponent, not XOR
+                    const hcf = (a, b) => {
+                        while (b) {
+                            [a, b] = [b, a % b];
+                        }
+                        return a;
+                    };
+
+                    const lcm = (a, b) => (a * b) / hcf(a, b);
+                    const factorial = (n) => {
+                        if (n < 0) return NaN;
+                        if (n === 0) return 1;
+                        let res = 1;
+                        for (let i = 2; i <= n; i++) res *= i;
+                        return res;
+                    };
+
+                    const scope = {
+                        log: (base, n) => Math.log(n) / Math.log(base),
+                        factorial,
+                        avg: (...args) => args.reduce((a, b) => a + b, 0) / args.length,
+                        abs: Math.abs,
+                        round: Math.round,
+                        ceil: Math.ceil,
+                        floor: Math.floor,
+                        lcm,
+                        hcf,
+                    };
+
+                    // Treat ^ as exponent
                     const exprJS = expr.replace(/\^/g, '**');
-                    const res = new Function(`return (${exprJS});`)();
+
+                    // Create a function with a controlled scope
+                    const res = new Function(...Object.keys(scope), `return (${exprJS});`)(...Object.values(scope));
+
                     return { ok: true, result: res };
                 } catch (e) {
                     return { ok: false, error: String(e.message || e) };
