@@ -124,7 +124,7 @@ class ToolRegistry {
         // run_js
         this.registerTool({
             name: 'run_js',
-            description: 'Execute short JavaScript in a sandbox. The code runs inside an async function; return a value. Use the "input" variable for input.',
+            description: 'Execute short JavaScript in a sandbox. The code runs inside an async function; return a value. Use the "input" variable for input.Always use return statement',
             parameters: {
                 type: 'object',
                 properties: {
