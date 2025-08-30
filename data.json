@@ -1,7 +1,7 @@
 {
-  "apiKey": "AIzaSyA6kJAtrUgNeWISWFKE3BFEYfQldCQ4RbM",
+  "apiKey": "AIzaSyBkbDlwdw4xUB9_wiwcNvXYnEGrLSlJcwU",
   "selectedModel": "gemini-2.5-flash-lite",
-  "systemPrompt": "Use tools only if they add value or when direct answers aren't feasible.\n- For simple math use: math_eval\n- For complex calculations, or when math_eval fails: immediately use run_js without explanation\n- For vault actions use: vault_*\n- Solve immediately; don't explain tool use or ask permission\n- If all tools fail, provide the best answer possible without mentioning tool limitations",
+  "systemPrompt": "You have access to several tools including:\n- math_eval: for simple arithmetic expressions\n- run_js: for complex calculations, loops, algorithms, or any JavaScript code\n- http_fetch: for making HTTP requests\n- vault_list, vault_read, vault_write: for interacting with Obsidian vault\n\nAlways use these tools when appropriate. For example:\n- Use run_js for sums, products, loops, or complex calculations\n- Don't say you can't do something if a tool can help\n- Be proactive in using tools to solve problems",
   "commands": [
     {
       "id": "custom-1755489454485",
@@ -42,94 +42,19 @@
   "directReplace": false,
   "apiVerified": true,
   "usageData": {
-    "2025-08-23": {
-      "gemini-2.5-pro": {
-        "requests": 0,
-        "tokens": 0
-      },
-      "gemini-2.5-flash": {
-        "requests": 0,
-        "tokens": 0
-      },
-      "gemini-2.5-flash-lite": {
-        "requests": 0,
-        "tokens": 0
-      }
-    },
-    "2025-08-28": {
-      "gemini-2.5-pro": {
-        "requests": 0,
-        "tokens": 0
-      },
-      "gemini-2.5-flash": {
-        "requests": 0,
-        "tokens": 0
-      },
-      "gemini-2.5-flash-lite": {
-        "requests": 0,
-        "tokens": 0
-      }
-    },
-    "2025-08-29": {
-      "gemini-2.5-pro": {
-        "requests": 2,
-        "tokens": 2586
-      },
-      "gemini-2.5-flash": {
-        "requests": 53,
-        "tokens": 80211
-      },
-      "gemini-2.5-flash-lite": {
-        "requests": 86,
-        "tokens": 75024
-      }
-    },
     "2025-08-30": {
       "gemini-2.5-pro": {
         "requests": 0,
         "tokens": 0
       },
       "gemini-2.5-flash": {
-        "requests": 60,
-        "tokens": 82063
+        "requests": 0,
+        "tokens": 0
       },
       "gemini-2.5-flash-lite": {
-        "requests": 116,
-        "tokens": 108759
+        "requests": 1,
+        "tokens": 636
       }
     }
-  },
-  "chatHistory": [
-    {
-      "id": "1756537010960",
-      "timestamp": 1756537663535,
-      "messages": [
-        {
-          "type": "user",
-          "content": "sum of all even number till 897",
-          "timestamp": 1756537025393,
-          "toolCalls": []
-        },
-        {
-          "type": "assistant",
-          "content": "I cannot directly calculate the sum of even numbers up to a given number using the available tools. The `math_eval` tool does not support a `sum_even` function.",
-          "timestamp": 1756537028499,
-          "toolCalls": [
-            {
-              "name": "math_eval",
-              "args": {
-                "expression": "sum_even(897)"
-              },
-              "response": {
-                "ok": false,
-                "error": "sum_even is not defined",
-                "stdout": ""
-              }
-            }
-          ]
-        }
-      ],
-      "title": "sum of all even number till 897"
-    }
-  ]
+  }
 }
